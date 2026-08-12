@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Iron Log</title>
+<meta name="apple-mobile-web-app-title" content="Iron Log" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#121316" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23121316'/%3E%3Cpath d='M35 30 L35 70 M65 30 L65 70 M25 40 L25 60 M75 40 L75 60 M20 45 L20 55 M80 45 L80 55 M35 50 L65 50' stroke='%23E4572E' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #121316;
+    color: #F2F0EA;
+    font-family: 'Inter', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .disp { font-family: 'Oswald', sans-serif; letter-spacing: 0.02em; }
+  .tab-num { font-variant-numeric: tabular-nums; }
+  ::-webkit-scrollbar { display: none; }
+
+  #app { min-height: 100vh; display: flex; flex-direction: column; }
+  .wrap { max-width: 480px; width: 100%; margin: 0 auto; padding: 0 16px; }
+
+  header.hdr { padding: 24px 16px 12px; }
+  header.hdr .row { display: flex; align-items: baseline; gap: 8px; }
+  header.hdr h1 { font-size: 20px; font-weight: 600; text-transform: uppercase; margin: 0; }
+  header.hdr p { font-size: 12px; color: #8B8F96; margin: 2px 0 0; }
+
+  main { flex: 1; overflow-y: auto; padding: 16px 16px 96px; }
+
+  nav.tabbar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #17181B; border-top: 1px solid #26292E;
+  }
+  nav.tabbar .row { max-width: 480px; margin: 0 auto; display: flex; }
+  nav.tabbar button {
+    flex: 1; background: none; border: none; padding: 10px 2px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    color: #8B8F96; cursor: pointer;
+  }
+  nav.tabbar button.active { color: #E4572E; }
+  nav.tabbar button span { font-size: 9px; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 500; text-align: center; line-height: 1.1; }
+  nav.tabbar svg { width: 19px; height: 19px; }
+
+  .card { background: #1C1E22; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .card.sub { background: #26292E; border-radius: 12px; padding: 10px 12px; }
+  .card.test { border: 1px solid #7FB069; }
+  .card.warn { border: 1px solid #E4572E; }
+
+  .pill-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin: 0 -16px 12px; padding-left: 16px; padding-right: 16px; }
+  .pill {
+    flex-shrink: 0; padding: 6px 12px; border-radius: 999px; font-size: 12px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em;
+    background: #1C1E22; color: #8B8F96; border: none; cursor: pointer;
+  }
+  .pill.active { background: #E4572E; color: #121316; }
+
+  .lbl { font-size: 10px; text-transform: uppercase; color: #8B8F96; letter-spacing: 0.03em; margin-bottom: 4px; }
+  input[type="text"], input[type="number"], textarea, input[type="search"] {
+    background: #26292E; color: #F2F0EA; border: none; border-radius: 10px;
+    padding: 8px 10px; font-size: 14px; font-family: 'Inter', sans-serif; width: 100%; outline: none;
+  }
+  .card input[type="text"], .card input[type="number"] { background: #26292E; }
+  textarea { resize: none; border-radius: 16px; padding: 12px; }
+
+  .btn {
+    width: 100%; border: none; border-radius: 12px; padding: 10px;
+    font-family: 'Oswald', sans-serif; text-transform: uppercase; font-weight: 600;
+    font-size: 13px; letter-spacing: 0.02em; cursor: pointer;
+  }
+  .btn-primary { background: #E4572E; color: #121316; }
+  .btn-done { background: #26292E; color: #8B8F96; }
+  .btn-outline { background: #1C1E22; color: #F2F0EA; border: 1px solid #E4572E; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-copied { background: #7FB069; color: #121316; }
+
+  .btn-copy-sm {
+    background: #1C1E22; color: #8B8F96; border: 1px solid #33363C;
+    border-radius: 999px; padding: 7px 16px; font-size: 12px; font-weight: 500;
+    font-family: 'Inter', sans-serif; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-copy-sm svg { width: 13px; height: 13px; }
+  .btn-copy-sm.btn-copied { background: #7FB069; color: #121316; border-color: #7FB069; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .flex-gap { display: flex; align-items: center; gap: 8px; }
+  .space-y > * + * { margin-top: 12px; }
+
+  .accent { color: #E4572E; }
+  .good { color: #7FB069; }
+  .muted { color: #8B8F96; }
+  .small { font-size: 12px; }
+  .xsmall { font-size: 10px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ============================================================
+// Constants (mirrors the React version 1:1)
+// ============================================================
+
+const DAY_ORDER = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+const LIFT_LABELS = {
+  squat:"Back Squat", frontSquat:"Front Squat", overheadSquat:"Overhead Squat",
+  deadlift:"Deadlift", sumoDeadlift:"Sumo Deadlift",
+  bench:"Bench Press", ohp:"Strict Press", pushPress:"Push Press", pushJerk:"Push Jerk", splitJerk:"Split Jerk",
+  snatch:"Snatch", powerSnatch:"Power Snatch", hangSnatch:"Hang Snatch",
+  clean:"Clean", powerClean:"Power Clean", hangClean:"Hang Clean", cleanAndJerk:"Clean & Jerk",
+  thruster:"Thruster", hipThrust:"Hip Thrust",
+};
+
+const LIFT_GROUPS = [
+  { title:"Squat", lifts:["squat","frontSquat","overheadSquat"] },
+  { title:"Deadlift", lifts:["deadlift","sumoDeadlift"] },
+  { title:"Press", lifts:["bench","ohp","pushPress","pushJerk","splitJerk"] },
+  { title:"Snatch", lifts:["snatch","powerSnatch","hangSnatch"] },
+  { title:"Clean", lifts:["clean","powerClean","hangClean","cleanAndJerk"] },
+  { title:"Other", lifts:["thruster","hipThrust"] },
+];
+
+const LIFT_INCREMENT = {
+  squat:5, frontSquat:2.5, overheadSquat:2.5, deadlift:5, sumoDeadlift:5,
+  bench:2.5, ohp:2.5, pushPress:2.5, pushJerk:2.5, splitJerk:2.5,
+  snatch:1, powerSnatch:1, hangSnatch:1,
+  clean:2.5, powerClean:2.5, hangClean:2.5, cleanAndJerk:2.5,
+  thruster:2.5, hipThrust:5,
+};
+
+const DEFAULT_ONE_RMS = Object.keys(LIFT_LABELS).reduce((acc,key)=>{
+  acc[key] = key==="squat"?120 : key==="bench"?100 : key==="deadlift"?140 : key==="ohp"?60 : 0;
+  return acc;
+},{});
+
+// ---------- Block templates ----------
+// Each primary lift gets a progression matched to how that lift actually
+// responds, rather than one generic curve applied to everything.
+//   style  = execution cue shown on the card (tempo, pause, cluster, etc.)
+//   testType = "1rm" for a true single, "repMax" where a single is impractical
+
+// FRONT SQUAT — limited by front rack and upper back, not leg strength, so
+// grinding high-rep sets fails at the rack position first. Pause work early
+// builds the bottom position, then threes and doubles carry to a single.
+function frontSquatBlock(){
+  return { key:"frontSquat-fs-v2", label:"Pause to Peak", type:"barbell", lift:"frontSquat",
+    name:"Front Squat", testType:"1rm", weeks:[
+    {week:1,sets:4,reps:6,pct:0.65,style:"2s pause in the hole, controlled up"},
+    {week:2,sets:4,reps:5,pct:0.70,style:"2s pause in the hole"},
+    {week:3,sets:5,reps:3,pct:0.78,style:"No pause, drive hard out of the bottom"},
+    {week:4,sets:5,reps:3,pct:0.82,style:"Reset the rack position every rep"},
+    {week:5,sets:4,reps:2,pct:0.88,style:"Heavy doubles, stop if the elbows drop"},
+    {week:6,sets:1,reps:1,pct:0.95,isTest:true,style:"Build to a max single"},
+  ]};
+}
+
+// BENCH PRESS — paused reps build bottom-end strength and rep consistency;
+// touch-and-go is then used as an overload tactic once the pause work stales.
+function benchBlock(){
+  return { key:"bench-bp-v2", label:"Paused Strength to Overload", type:"barbell", lift:"bench",
+    name:"Bench Press", testType:"1rm", weeks:[
+    {week:1,sets:4,reps:6,pct:0.68,style:"1s pause on the chest every rep"},
+    {week:2,sets:4,reps:5,pct:0.73,style:"1s pause on the chest"},
+    {week:3,sets:5,reps:4,pct:0.78,style:"2s pause - hardest week for position"},
+    {week:4,sets:4,reps:4,pct:0.80,style:"Touch-and-go, use the overload"},
+    {week:5,sets:3,reps:2,pct:0.88,style:"Touch-and-go doubles, sharp lockout"},
+    {week:6,sets:1,reps:1,pct:0.95,isTest:true,style:"Build to a max single"},
+  ]};
+}
+
+// HIP THRUST — glute-dominant and highly load-tolerant, but a true 1RM is
+// awkward and low-value. Double progression on higher reps, tested as a 5RM.
+function hipThrustBlock(){
+  return { key:"hipThrust-ht-v2", label:"Double Progression", type:"barbell", lift:"hipThrust",
+    name:"Hip Thrust", testType:"repMax", testReps:5, weeks:[
+    {week:1,sets:4,reps:12,pct:0.60,style:"2s squeeze at lockout every rep"},
+    {week:2,sets:4,reps:10,pct:0.66,style:"2s squeeze at lockout"},
+    {week:3,sets:4,reps:8,pct:0.72,style:"Full lockout, ribs down"},
+    {week:4,sets:4,reps:8,pct:0.76,style:"Add load only if all sets hit 8"},
+    {week:5,sets:3,reps:6,pct:0.82,style:"Heavy, still full lockout"},
+    {week:6,sets:1,reps:5,pct:0.85,isTest:true,style:"Test: heaviest clean set of 5"},
+  ]};
+}
+
+// STRICT PRESS — small muscle mass and slow absolute progression, so it does
+// better on rep-driven volume with back-off work than on aggressive % jumps.
+function strictPressBlock(){
+  return { key:"ohp-sp-v2", label:"Volume Accumulation", type:"barbell", lift:"ohp",
+    name:"Strict Press", testType:"1rm", weeks:[
+    {week:1,sets:5,reps:8,pct:0.62,style:"Strict - no leg drive, no layback"},
+    {week:2,sets:5,reps:6,pct:0.68,style:"Strict, brace hard"},
+    {week:3,sets:5,reps:5,pct:0.74,style:"Strict, full lockout overhead"},
+    {week:4,sets:4,reps:4,pct:0.80,style:"Strict, reset each rep at the shoulder"},
+    {week:5,sets:4,reps:2,pct:0.87,style:"Heavy doubles"},
+    {week:6,sets:1,reps:1,pct:0.95,isTest:true,style:"Build to a max single"},
+  ]};
+}
+
+// DEADLIFT — the most fatiguing lift to accumulate volume on. Cluster sets
+// let heavy loads be repeated with far less velocity and power loss, so the
+// mid-block weeks use intra-set rest rather than straight sets.
+function deadliftBlock(){
+  return { key:"deadlift-dl-v2", label:"Cluster Loading", type:"barbell", lift:"deadlift",
+    name:"Deadlift", testType:"1rm", weeks:[
+    {week:1,sets:4,reps:5,pct:0.70,style:"Straight sets, dead stop each rep"},
+    {week:2,sets:5,reps:3,pct:0.78,style:"Cluster: 3 reps, 20s rest, repeat"},
+    {week:3,sets:5,reps:2,pct:0.83,style:"Cluster: 2 reps, 30s rest, repeat"},
+    {week:4,sets:6,reps:2,pct:0.86,style:"Cluster: 2 reps, 30s rest - hardest week"},
+    {week:5,sets:5,reps:1,pct:0.90,style:"Cluster singles, 30s rest between"},
+    {week:6,sets:1,reps:1,pct:0.95,isTest:true,style:"Build to a max single"},
+  ]};
+}
+
+function hspuSkillBlock(){
+  return { key:"hspu-skill", label:"Gymnastics Skill Progression", type:"skill", name:"Handstand Push-up", weeks:[
+    {week:1,prescription:"Wall-facing Handstand Hold 5 x 30–45s + Pike Push-up 4 x 8"},
+    {week:2,prescription:"Wall-facing Handstand Hold 5 x 45–60s + Deficit Pike Push-up 4 x 10"},
+    {week:3,prescription:"Kick-up to Handstand practice 8 attempts + Negative HSPU 4 x 3"},
+    {week:4,prescription:"Strict HSPU singles/doubles with light assistance, 5 sets"},
+    {week:5,prescription:"Strict HSPU 4 x 3–5 unbroken, minimal assistance"},
+    {week:6,prescription:"Test: max unbroken strict Handstand Push-ups",isTest:true},
+  ]};
+}
+
+const ACTIVE_BLOCKS = {
+  Monday: frontSquatBlock(),
+  Tuesday: benchBlock(),
+  Wednesday: hipThrustBlock(),
+  Thursday: strictPressBlock(),
+  Friday: deadliftBlock(),
+};
+
+// Bumped to v2: the research-based block rewrite changed every block key,
+// which resets each slot to "now" and would have landed all five days on the
+// same week. This reseeds the spacing so they finish in different weeks again.
+const STAGGER_VERSION = "v2";
+const OFFSET_WEEKS_FROM_NOW = { Tuesday:1, Monday:2, Wednesday:3, Thursday:4, Friday:5 };
+
+const ACCESSORY_PROGRAM = {
+  Monday:{ exercises:[
+    {id:"mon-2",name:"Straight Leg Deadlift (RDL)",type:"accessory",sets:4,reps:8,detail:"Moderate-heavy, control the stretch"},
+    {id:"mon-3",name:"Standing Calf Raise",type:"accessory",sets:3,reps:15,detail:"Pause 1s at the top"},
+  ]},
+  Tuesday:{ exercises:[
+    {id:"tue-2",name:"Weighted Pull-up",type:"accessory",sets:4,reps:7,detail:"Add load if possible, full hang each rep"},
+  ]},
+  Wednesday:{ exercises:[
+    {id:"wed-1",name:"Single Leg RDL",type:"accessory",sets:3,reps:10,detail:"Per leg, light-moderate DB"},
+    {id:"wed-2",name:"Bulgarian Split Squat",type:"accessory",sets:3,reps:8,detail:"Per leg"},
+  ]},
+  Thursday:{ exercises:[
+    {id:"thu-2",name:"DB Row",type:"accessory",sets:3,reps:10,detail:"Per side"},
+    {id:"thu-3",name:"Lateral Raise",type:"accessory",sets:3,reps:14,detail:"Light, strict"},
+  ]},
+  Friday:{ exercises:[
+    {id:"fri-2",name:"Heavy Farmers Carry",type:"accessory",sets:4,reps:40,repUnit:"m",detail:"Heavy, tall posture"},
+    {id:"fri-3",name:"Hanging Knee Raise",type:"accessory",sets:3,reps:14,detail:"No swing"},
+  ]},
+  Saturday:{ staticFocus:"Long Barbell Cycling", exercises:[
+    {id:"sat-1",name:"Barbell Complex Cycling",type:"conditioning",
+     detail:"Cycle without dropping the bar: 5 Deadlifts, 5 Hang Cleans, 5 Front Squats, 5 Push Press. Rest 90s, repeat for 6–8 rounds",
+     cap:"Log rounds / total time"},
+  ]},
+  Sunday:{ staticFocus:"Rest", exercises:[] },
+};
+
+const ACCENT = "#E4572E", GOOD = "#7FB069";
+
+// ============================================================
+// Storage + utility
+// ============================================================
+
+const STORE_PREFIX = "ironlog:";
+async function loadKey(key, fallback){
+  try{
+    const raw = localStorage.getItem(STORE_PREFIX + key);
+    return raw === null ? fallback : JSON.parse(raw);
+  }catch{ return fallback; }
+}
+async function saveKey(key, value){
+  try{ localStorage.setItem(STORE_PREFIX + key, JSON.stringify(value)); } catch{}
+}
+
+function round25(n){ return Math.round(n/2.5)*2.5; }
+function epley1RM(w,r){ return (!w||!r) ? 0 : w*(1+r/30); }
+function todayName(){ return DAY_ORDER[(new Date().getDay()+6)%7]; }
+function fmtDate(d){ return new Date(d).toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
+function isSameCalendarDay(a,b){ return new Date(a).toDateString() === new Date(b).toDateString(); }
+function esc(s){ const d=document.createElement('div'); d.textContent = s==null?"":String(s); return d.innerHTML; }
+
+// Snap a date back to the most recent Sunday at midnight, so a "week" is a
+// real calendar week (Sun–Sat) rather than a rolling 7 days from the start
+// date. This means the prescribed session holds steady all week and only
+// advances on Sunday — miss Tuesday, do it Thursday, same numbers.
+function startOfWeekSunday(d){
+  const x = new Date(d);
+  x.setHours(0,0,0,0);
+  x.setDate(x.getDate() - x.getDay()); // getDay: Sunday = 0
+  return x;
+}
+
+function getSlotWeekInfo(day, slotState){
+  const block = ACTIVE_BLOCKS[day];
+  if(!block) return null;
+  const state = slotState[day];
+  const start = state ? state.startDate : new Date().toISOString();
+  const msPerWeek = 7*24*60*60*1000;
+  const weeksElapsed = Math.round((startOfWeekSunday(new Date()) - startOfWeekSunday(new Date(start))) / msPerWeek);
+  const weekNumber = Math.max(1, weeksElapsed + 1);
+  const weekInBlock = Math.min(weekNumber,6);
+  const complete = weekNumber > 6;
+  return { block, weekInBlock, complete };
+}
+
+function buildPrimaryExercise(day, slotState){
+  const info = getSlotWeekInfo(day, slotState);
+  if(!info) return null;
+  const { block, weekInBlock, complete } = info;
+  const wk = block.weeks.find(w=>w.week===weekInBlock);
+  const id = `${day}-primary-${block.key}`;
+  const base = { id, name:block.name, blockLabel:block.label, weekInBlock, complete, isTest: !!wk.isTest,
+                 style: wk.style || null, testType: block.testType || "1rm", testReps: block.testReps || null };
+  if(block.type==="barbell") return { ...base, type:"strength", lift:block.lift, sets:wk.sets, reps:wk.reps, pct:wk.pct };
+  return { ...base, type:"skill", prescription:wk.prescription };
+}
+
+function recommendedWeight(ex, oneRMs, logs){
+  const lift = ex.lift;
+  const increment = LIFT_INCREMENT[lift] || 2.5;
+  // A true 1RM test day aims just above the current max. A rep-max test still
+  // works off the prescribed percentage, since it's a set rather than a single.
+  if(ex.isTest && ex.testType !== "repMax") return round25((oneRMs[lift]||0)+increment);
+  const base = round25((oneRMs[lift]||0)*ex.pct);
+  const prior = logs.filter(l=>l.exerciseId===ex.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const last = prior[0];
+  if(!last) return base;
+  // Only carry a load forward when the prescription is unchanged; when the
+  // block moves to new sets/reps, the percentage drives the load instead.
+  if(last.reps === ex.reps && last.sets === ex.sets){
+    return last.hitTarget ? round25(last.weight+increment) : round25(last.weight);
+  }
+  return base;
+}
+
+async function parseWodWithClaude(rawText){
+  const response = await fetch("/api/parse-wod", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ rawText }),
+  });
+  if(!response.ok) throw new Error("API request failed");
+  return await response.json();
+}
+
+async function copyToClipboard(text){
+  try{ if(navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(text); return true; } }catch{}
+  try{
+    const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    return true;
+  }catch{ return false; }
+}
+
+function logLine(l){
+  if(l.type==="conditioning"||l.type==="skill"||l.type==="accessory") return l.result || "No result logged";
+  if(l.type==="customWod"){
+    const moves = (l.movements||[]).map(m=>{
+      const load = l.loads && l.loads[m.name] ? ` @ ${l.loads[m.name]}` : "";
+      return `${m.scheme?m.scheme+" ":""}${m.name}${load}`;
+    }).join(", ");
+    const body = moves || (l.rawText ? l.rawText.trim().split("\n").join(", ") : "");
+    return `${l.format?l.format+" - ":""}${body}${body?" - ":""}${l.result||"No result logged"}`;
+  }
+  return `${l.sets} x ${l.reps} @ ${l.weight}kg${l.hitTarget?"  ·  target hit":""}`;
+}
+function logName(l){ return l.type==="customWod" ? l.title : l.exerciseName; }
+
+function whoopLine(l){
+  if(l.type==="conditioning"||l.type==="skill") return l.result || "completed";
+  if(l.type==="accessory") return l.result || "completed";
+  return `${l.sets} x ${l.reps} @ ${l.weight}kg`;
+}
+
+// Custom WODs get their own multi-line block so the movements actually come
+// through, rather than just a title and a time.
+function whoopWodBlock(l){
+  const lines = [];
+  const head = l.format ? `${l.title} (${l.format}${l.timeCap?`, cap ${l.timeCap}`:""})` : l.title;
+  lines.push(head);
+  const moves = l.movements || [];
+  if(moves.length){
+    moves.forEach(m=>{
+      const load = l.loads && l.loads[m.name] ? ` @ ${l.loads[m.name]}` : "";
+      lines.push(`  ${m.scheme ? m.scheme + " " : ""}${m.name}${load}`);
+    });
+  } else if(l.rawText && l.rawText.trim()){
+    // Saved without parsing - fall back to the text exactly as pasted.
+    l.rawText.trim().split("\n").forEach(t=>{ if(t.trim()) lines.push(`  ${t.trim()}`); });
+  }
+  lines.push(`  Result: ${l.result || "completed"}`);
+  return lines.join("\n");
+}
+
+function buildWhoopText(logs, journal){
+  const now = new Date();
+  const todays = logs.filter(l=>isSameCalendarDay(l.date, now));
+  if(todays.length===0) return null;
+  const lines = todays.slice().reverse().map(l=>
+    l.type==="customWod" ? whoopWodBlock(l) : `${logName(l)} - ${whoopLine(l)}`
+  );
+  const journalToday = journal.filter(j=>isSameCalendarDay(j.date, now));
+  const header = `${now.toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric"})} Workout`;
+  let text = `${header}\n\n${lines.join("\n")}`;
+  if(journalToday.length) text += `\n\nNotes:\n${journalToday.map(j=>j.text).join("\n")}`;
+  // Strip characters that some apps render as mojibake on paste.
+  return text.replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"')
+             .replace(/[\u2013\u2014]/g,"-").replace(/\u00b7/g,"-").replace(/[^\x00-\x7F\n]/g,"");
+}
+
+// ============================================================
+// State
+// ============================================================
+
+const STATE = {
+  tab: "today",
+  selectedDay: todayName(),
+  oneRMs: DEFAULT_ONE_RMS,
+  logs: [],
+  journal: [],
+  prs: [],
+  slotState: {},
+  loaded: false,
+  // transient UI-only state
+  parsedWod: null,
+  parsing: false,
+  parseError: null,
+  editingLift: null,
+  logSearch: "",
+  logSubTab: "history",
+};
+
+async function init(){
+  const [rms,l,j,p,storedSlotState] = await Promise.all([
+    loadKey("oneRMs", DEFAULT_ONE_RMS),
+    loadKey("logs", []),
+    loadKey("journal", []),
+    loadKey("prs", []),
+    loadKey("slotState", {}),
+  ]);
+  STATE.oneRMs = { ...DEFAULT_ONE_RMS, ...rms };
+  STATE.logs = l; STATE.journal = j; STATE.prs = p;
+
+  const nextSlotState = { ...storedSlotState };
+  let changed = false;
+  const msPerWeek = 7*24*60*60*1000;
+  Object.keys(ACTIVE_BLOCKS).forEach(day=>{
+    const currentKey = ACTIVE_BLOCKS[day].key;
+    const stored = nextSlotState[day];
+    const blockChanged = !stored || stored.blockKey !== currentKey;
+    const staggerBump = !stored || stored.staggerVersion !== STAGGER_VERSION;
+    if(!blockChanged && !staggerBump) return;
+    let startDate;
+    if(staggerBump && OFFSET_WEEKS_FROM_NOW[day] !== undefined){
+      const backdateWeeks = 6 - OFFSET_WEEKS_FROM_NOW[day];
+      startDate = new Date(Date.now() - backdateWeeks*msPerWeek).toISOString();
+    } else {
+      startDate = new Date().toISOString();
+    }
+    nextSlotState[day] = { blockKey: currentKey, startDate, staggerVersion: STAGGER_VERSION };
+    changed = true;
+  });
+  if(changed) saveKey("slotState", nextSlotState);
+  STATE.slotState = nextSlotState;
+  STATE.loaded = true;
+  render();
+}
+
+function persistLogs(next){ STATE.logs = next; saveKey("logs", next); }
+function persistOneRMs(next){ STATE.oneRMs = next; saveKey("oneRMs", next); }
+function persistJournal(next){ STATE.journal = next; saveKey("journal", next); }
+function persistPrs(next){ STATE.prs = next; saveKey("prs", next); }
+
+function logStrength(ex, weight, reps, sets){
+  const hitTarget = reps >= ex.reps;
+  const entry = { id:`${Date.now()}`, date:new Date().toISOString(), day:STATE.selectedDay, type:"strength",
+    exerciseId:ex.id, exerciseName:ex.name, lift:ex.lift, weight, reps, sets, hitTarget, isTest: ex.isTest||false };
+  persistLogs([entry, ...STATE.logs]);
+  if(ex.lift){
+    const est = epley1RM(weight, reps);
+    if(est > (STATE.oneRMs[ex.lift]||0)){
+      persistOneRMs({ ...STATE.oneRMs, [ex.lift]: Math.round(est) });
+      persistPrs([{ id:`${Date.now()}-pr`, date:entry.date, lift:ex.lift, estOneRM:Math.round(est), weight, reps }, ...STATE.prs]);
+    }
+  }
+}
+function logConditioning(ex, result){
+  persistLogs([{ id:`${Date.now()}`, date:new Date().toISOString(), day:STATE.selectedDay,
+    exerciseId:ex.id, exerciseName:ex.name, type:"conditioning", result }, ...STATE.logs]);
+}
+function logSkill(ex, result){
+  persistLogs([{ id:`${Date.now()}`, date:new Date().toISOString(), day:STATE.selectedDay,
+    exerciseId:ex.id, exerciseName:ex.name, type:"skill", result, isTest:ex.isTest||false }, ...STATE.logs]);
+}
+function logAccessory(ex, sets, reps, weight){
+  const unit = ex.repUnit || "";
+  const result = `${sets} x ${reps}${unit}${weight ? ` @ ${weight}kg` : ""}`;
+  persistLogs([{ id:`${Date.now()}`, date:new Date().toISOString(), day:STATE.selectedDay,
+    exerciseId:ex.id, exerciseName:ex.name, type:"accessory",
+    sets, reps, weight: weight||null, result }, ...STATE.logs]);
+}
+function update1RM(lift, value){
+  const v = parseFloat(value);
+  if(isNaN(v)) return;
+  persistOneRMs({ ...STATE.oneRMs, [lift]: v });
+}
+function addJournal(text){
+  if(!text.trim()) return;
+  persistJournal([{ id:`${Date.now()}`, date:new Date().toISOString(), text }, ...STATE.journal]);
+}
+
+// ============================================================
+// Icons (minimal inline SVG set)
+// ============================================================
+
+const ICONS = {
+  calendar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`,
+  clipboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/><path d="M9 12h6M9 16h6"/></svg>`,
+  chevron: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`,
+  dumbbell: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5 17.5 17.5M2 8l4-4M22 16l-4 4M6 4l2 2M18 18l2 2M4 12h2M18 12h2M7 9l1.5 1.5M15.5 13.5 17 15"/></svg>`,
+  notebook: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H4a2 2 0 0 1-2-2V6z"/><path d="M6 4v18"/></svg>`,
+  flame: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 1 1-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`,
+  plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`,
+  pencil: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`,
+  search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`,
+  sparkles: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 4.1L6 9l4.1 1.9L12 15l1.9-4.1L18 9l-4.1-1.9L12 3zM5 3v4M3 5h4M19 17v4M17 19h4"/></svg>`,
+  copy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
+  check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`,
+  refresh: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></svg>`,
+  trend: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 7 13.5 15.5 8.5 10.5 2 17M16 7h6v6"/></svg>`,
+};
+
+// ============================================================
+// Render
+// ============================================================
+
+function render(){
+  const root = document.getElementById('app');
+  if(!STATE.loaded){
+    root.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:#8B8F96;font-size:13px;text-transform:uppercase;letter-spacing:0.1em;">Loading…</div>`;
+    return;
+  }
+  root.innerHTML = `
+    <header class="hdr"><div class="wrap">
+      <div class="row">${iconSpan('flame',20,ACCENT)}<h1 class="disp">Iron Log</h1></div>
+      <p>Hyrox strength & conditioning</p>
+    </div></header>
+    <main><div class="wrap" id="main-content"></div></main>
+    <nav class="tabbar"><div class="row">
+      ${tabBtn('today','calendar','Today')}
+      ${tabBtn('program','chevron','Program')}
+      ${tabBtn('lifts','dumbbell','Lifts')}
+      ${tabBtn('log','notebook','Log')}
+    </div></nav>
+  `;
+  renderMain();
+  attachGlobalHandlers();
+}
+
+function iconSpan(name,size,color){
+  return `<span style="width:${size}px;height:${size}px;color:${color};display:inline-flex">${ICONS[name]}</span>`;
+}
+function tabBtn(id,icon,label){
+  const active = STATE.tab===id;
+  return `<button data-tab="${id}" class="${active?'active':''}">${ICONS[icon]}<span>${label}</span></button>`;
+}
+
+function renderMain(){
+  const el = document.getElementById('main-content');
+  if(STATE.tab==="today") el.innerHTML = renderToday();
+  else if(STATE.tab==="program") el.innerHTML = renderProgram();
+  else if(STATE.tab==="lifts") el.innerHTML = renderLifts();
+  else if(STATE.tab==="log") el.innerHTML = renderLog();
+  attachTabHandlers();
+}
+
+// ---------- Today ----------
+
+function renderToday(){
+  const day = STATE.selectedDay;
+  const dayData = ACCESSORY_PROGRAM[day];
+  const primary = buildPrimaryExercise(day, STATE.slotState);
+  const exercises = primary ? [primary, ...dayData.exercises] : dayData.exercises;
+  const subtitle = primary ? `${esc(primary.name)} · Week ${primary.weekInBlock}/6 · ${esc(primary.blockLabel)}` : esc(dayData.staticFocus);
+
+  let html = `<div class="pill-row">${DAY_ORDER.map(d=>
+    `<button class="pill ${d===day?'active':''}" data-day="${d}">${d.slice(0,3)}</button>`
+  ).join('')}</div>`;
+
+  html += `<div style="margin-bottom:16px"><div class="disp" style="font-size:24px;text-transform:uppercase;font-weight:600">${day}</div>
+    <div class="small accent">${subtitle}</div></div>`;
+
+  if(primary && primary.complete){
+    html += `<div class="card warn space-y" style="display:flex;gap:8px;align-items:flex-start">
+      ${iconSpan('refresh',15,ACCENT)}
+      <div class="small" style="margin:0"><span class="accent" style="font-weight:600">${day}'s block is complete.</span>
+      Tell Claude in chat what to focus on next and it'll swap it in — your history stays right where it is in Log.</div>
+    </div>`;
+  }
+
+  if(exercises.length===0){
+    html += `<div class="card" style="text-align:center;color:#8B8F96" class="small">Rest day. Recover, hydrate, sleep.</div>`;
+  } else {
+    exercises.forEach(ex=>{
+      if(ex.type==="strength") html += renderStrengthCard(ex);
+      else if(ex.type==="skill") html += renderSkillCard(ex);
+      else if(ex.type==="conditioning") html += renderConditioningCard(ex);
+      else html += renderAccessoryCard(ex);
+    });
+  }
+
+  // Per-day WOD paste
+  const dayWods = STATE.logs.filter(l => l.type==="customWod" && l.day===day).slice(0,5);
+  html += `<div style="margin-top:24px">
+    <div class="disp" style="font-size:17px;text-transform:uppercase;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      ${iconSpan('sparkles',16,ACCENT)} Add a WOD to ${day}</div>
+    <p class="xsmall muted" style="margin-bottom:10px">Paste one in and I'll break it into movements, then save it against ${day} in your history.</p>
+    <textarea id="wod-raw" rows="5" placeholder="e.g.&#10;For Time:&#10;21-15-9&#10;Thrusters 42.5kg&#10;Pull-ups"></textarea>
+    <button class="btn btn-primary" id="wod-parse-btn" style="margin-top:10px">Read & Break Down</button>
+    <div id="wod-error" class="xsmall muted" style="margin-top:8px"></div>
+    <div id="wod-parsed" style="margin-top:12px"></div>
+    <div id="wod-skip-wrap"></div>`;
+
+  if(dayWods.length){
+    html += `<div style="margin-top:16px"><div class="xsmall muted" style="text-transform:uppercase;margin-bottom:8px">WODs logged on ${day}</div>`;
+    dayWods.forEach(l=>{
+      html += `<div class="card" style="padding:12px"><div style="display:flex;justify-content:space-between">
+        <div class="small" style="font-weight:500">${esc(l.title)}</div><div class="xsmall muted">${fmtDate(l.date)}</div></div>
+        <div class="xsmall muted" style="margin-top:4px;white-space:pre-line;line-height:1.5">${esc(logLine(l))}</div></div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  // WHOOP export sits last - it's the end-of-session action.
+  const whoopText = buildWhoopText(STATE.logs, STATE.journal);
+  if(whoopText){
+    html += `<div style="margin-top:28px;display:flex;justify-content:center">
+      <button class="btn-copy-sm" id="copy-whoop-btn">${ICONS.copy}<span id="copy-whoop-label">Copy for WHOOP</span></button>
+    </div>`;
+  }
+  return html;
+}
+
+function blockBadge(ex){
+  if(!ex.blockLabel) return '';
+  const color = ex.isTest ? GOOD : '#8B8F96';
+  return `<div class="xsmall" style="text-transform:uppercase;letter-spacing:0.03em;color:${color};margin-top:4px">
+    Week ${ex.weekInBlock}/6 · ${esc(ex.blockLabel)}${ex.isTest?' · Test Day':''}</div>`;
+}
+
+function renderStrengthCard(ex){
+  const rec = recommendedWeight(ex, STATE.oneRMs, STATE.logs);
+  const prior = STATE.logs.filter(l=>l.exerciseId===ex.id);
+  const last = prior[0];
+  return `<div class="card ${ex.isTest?'test':''}" data-card="${ex.id}" data-extype="strength" data-exjson='${escAttr(ex)}'>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="disp" style="font-size:16px;font-weight:600">${esc(ex.name)}</div>
+        <div class="xsmall muted" style="margin-top:2px">${ex.sets} x ${ex.reps} @ ${Math.round(ex.pct*100)}% of ${ex.testType==="repMax"?`${ex.testReps||5}RM`:"1RM"}</div>
+        ${ex.style ? `<div class="xsmall" style="margin-top:4px;color:#d6d3d1">${esc(ex.style)}</div>` : ''}
+        ${blockBadge(ex)}
+      </div>
+      <span class="done-check" style="display:none">${iconSpan('check',18,GOOD)}</span>
+    </div>
+    <div class="flex-gap" style="margin-top:12px">
+      <div class="card sub" style="flex:1"><div class="lbl">${ex.isTest?'Attempt':'Recommended'}</div>
+        <div class="disp tab-num accent" style="font-size:18px;font-weight:600">${rec} kg</div></div>
+      ${last ? `<div class="card sub" style="flex:1"><div class="lbl">Last time</div>
+        <div class="disp tab-num" style="font-size:18px;font-weight:600;color:#d6d3d1">${last.weight} kg</div></div>` : ''}
+    </div>
+    <div class="grid3" style="margin-top:12px">
+      <div><div class="lbl">Sets</div><input type="number" class="tab-num" data-f="sets" value="${ex.sets}"/></div>
+      <div><div class="lbl">Reps/set</div><input type="number" class="tab-num" data-f="reps" value="${ex.reps}"/></div>
+      <div><div class="lbl">Weight kg</div><input type="number" class="tab-num" data-f="weight" value="${rec}"/></div>
+    </div>
+    <button class="btn btn-primary log-strength-btn" style="margin-top:12px">${ex.isTest?'Log 1RM Attempt':'Log Set'}</button>
+  </div>`;
+}
+
+function renderSkillCard(ex){
+  const prior = STATE.logs.filter(l=>l.exerciseId===ex.id);
+  const last = prior[0];
+  return `<div class="card ${ex.isTest?'test':''}" data-card="${ex.id}" data-extype="skill" data-exjson='${escAttr(ex)}'>
+    <div class="disp" style="font-size:16px;font-weight:600">${esc(ex.name)}</div>
+    <div class="small muted" style="margin-top:4px">${esc(ex.prescription)}</div>
+    ${blockBadge(ex)}
+    ${last ? `<div class="card sub" style="margin-top:12px"><div class="lbl">Last logged</div>
+      <div class="small" style="color:#d6d3d1;margin-top:2px">${esc(last.result)}</div></div>` : ''}
+    <input type="text" class="result-input" style="margin-top:12px" placeholder="${ex.isTest?'Max unbroken reps':'Reps / sets / notes'}"/>
+    <button class="btn btn-primary log-skill-btn" style="margin-top:12px">${ex.isTest?'Log Test Result':'Log Session'}</button>
+  </div>`;
+}
+
+function renderConditioningCard(ex){
+  const prior = STATE.logs.filter(l=>l.exerciseId===ex.id);
+  const last = prior[0];
+  return `<div class="card" data-card="${ex.id}" data-extype="conditioning" data-exjson='${escAttr(ex)}'>
+    <div class="disp" style="font-size:16px;font-weight:600">${esc(ex.name)}</div>
+    <div class="small muted" style="margin-top:4px">${esc(ex.detail)}</div>
+    ${ex.cap ? `<div class="xsmall accent" style="margin-top:4px">${esc(ex.cap)}</div>` : ''}
+    ${last ? `<div class="card sub" style="margin-top:12px"><div class="lbl">Last result</div>
+      <div class="small" style="color:#d6d3d1;margin-top:2px">${esc(last.result)}</div></div>` : ''}
+    <input type="text" class="result-input" style="margin-top:12px" placeholder="Time, rounds, or notes"/>
+    <button class="btn btn-primary log-conditioning-btn" style="margin-top:12px">Log Result</button>
+  </div>`;
+}
+
+function renderAccessoryCard(ex){
+  const prior = STATE.logs.filter(l=>l.exerciseId===ex.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const last = prior[0];
+  const unit = ex.repUnit || "";
+  // Prefill from last session where available, else the recommendation.
+  const setsVal = last && last.sets ? last.sets : ex.sets;
+  const repsVal = last && last.reps ? last.reps : ex.reps;
+  const weightVal = last && last.weight ? last.weight : "";
+  return `<div class="card" data-card="${ex.id}" data-extype="accessory" data-exjson='${escAttr(ex)}'>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="disp" style="font-size:16px;font-weight:600">${esc(ex.name)}</div>
+        <div class="xsmall muted" style="margin-top:2px">Suggested ${ex.sets} x ${ex.reps}${unit}</div>
+        <div class="small muted" style="margin-top:2px">${esc(ex.detail)}</div>
+      </div>
+      <span class="done-check" style="display:none">${iconSpan('check',18,GOOD)}</span>
+    </div>
+    ${last ? `<div class="card sub" style="margin-top:12px"><div class="lbl">Last time</div>
+      <div class="small" style="color:#d6d3d1;margin-top:2px">${esc(last.result)}</div></div>` : ''}
+    <div class="grid3" style="margin-top:12px">
+      <div><div class="lbl">Sets</div><input type="number" class="tab-num" data-f="sets" value="${setsVal}"/></div>
+      <div><div class="lbl">Reps${unit?' ('+unit+')':''}</div><input type="number" class="tab-num" data-f="reps" value="${repsVal}"/></div>
+      <div><div class="lbl">Weight kg</div><input type="number" class="tab-num" data-f="weight" value="${weightVal}" placeholder="-"/></div>
+    </div>
+    <button class="btn btn-primary log-accessory-btn" style="margin-top:12px">Log Accessory</button>
+  </div>`;
+}
+
+function escAttr(obj){ return esc(JSON.stringify(obj)).replace(/'/g,'&#39;'); }
+
+// ---------- Paste WOD ----------
+
+function renderWodPaste(){
+  const customLogs = STATE.logs.filter(l=>l.type==="customWod").slice(0,8);
+  let html = `<div style="margin-bottom:16px">
+    <div class="disp" style="font-size:24px;text-transform:uppercase;font-weight:600;display:flex;align-items:center;gap:8px">
+      ${iconSpan('sparkles',18,ACCENT)} Paste Today's WOD</div>
+    <p class="xsmall muted" style="margin-top:4px">Paste it in from wherever you found it — I'll read it, break it into movements, and save it to your history so you can track times and weights over time.</p>
+  </div>
+  <textarea id="wod-raw" rows="6" placeholder="e.g.&#10;For Time:&#10;21-15-9&#10;Thrusters 42.5kg&#10;Pull-ups"></textarea>
+  <button class="btn btn-primary" id="wod-parse-btn" style="margin-top:12px">Read & Break Down</button>
+  <div id="wod-error" class="xsmall muted" style="margin-top:8px"></div>
+  <div id="wod-parsed" style="margin-top:12px"></div>
+  <div id="wod-skip-wrap"></div>`;
+
+  if(customLogs.length){
+    html += `<div style="margin-top:16px"><div class="xsmall muted" style="text-transform:uppercase;margin-bottom:8px">Recent Pasted WODs</div>`;
+    customLogs.forEach(l=>{
+      html += `<div class="card" style="padding:12px"><div style="display:flex;justify-content:space-between">
+        <div class="small" style="font-weight:500">${esc(l.title)}</div><div class="xsmall muted">${fmtDate(l.date)}</div></div>
+        <div class="xsmall muted" style="margin-top:2px">${esc(l.result||"No result logged")}</div></div>`;
+    });
+    html += `</div>`;
+  }
+  return html;
+}
+
+function renderParsedWod(parsed){
+  let html = `<div class="card">
+    <div class="disp" style="font-size:18px;font-weight:600">${esc(parsed.title)}</div>
+    <div class="xsmall accent" style="margin-top:2px">${esc(parsed.format||'')}${parsed.timeCap?` · Cap ${esc(parsed.timeCap)}`:''}</div>
+    <div style="margin-top:10px" class="space-y">`;
+  (parsed.movements||[]).forEach((m,i)=>{
+    html += `<div class="flex-gap"><div class="small" style="flex:1;color:#d6d3d1"><span style="font-weight:500">${esc(m.name)}</span>
+      <span class="muted"> — ${esc(m.scheme)}</span></div>
+      <input type="text" class="load-input" data-move="${esc(m.name)}" style="width:80px;font-size:12px;padding:6px 8px" placeholder="load"/></div>`;
+  });
+  html += `</div>`;
+  if(parsed.notes) html += `<div class="xsmall muted" style="margin-top:8px;font-style:italic">${esc(parsed.notes)}</div>`;
+  html += `<input type="text" id="wod-result" style="margin-top:10px" placeholder="Your result — time, rounds, score"/>
+    <button class="btn btn-primary" id="wod-save-btn" style="margin-top:10px">Save to History</button>
+  </div>`;
+  return html;
+}
+
+// ---------- Program ----------
+
+function renderProgram(){
+  let html = `<div class="disp" style="font-size:24px;text-transform:uppercase;font-weight:600;margin-bottom:4px">Weekly Program</div>
+  <p class="xsmall muted" style="margin-bottom:12px">Monday–Friday each carry one active focus lift that auto-progresses week to week. When a block hits week 6, just tell Claude in chat what to work on next and it's swapped in with the week count reset. Old work stays searchable in Log.</p>`;
+
+  DAY_ORDER.forEach(day=>{
+    const primary = buildPrimaryExercise(day, STATE.slotState);
+    const dayData = ACCESSORY_PROGRAM[day];
+    html += `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div class="disp" style="font-size:15px;font-weight:600;text-transform:uppercase">${day}</div>
+        <div class="xsmall accent">${primary ? `Week ${primary.weekInBlock}/6` : esc(dayData.staticFocus)}</div>
+      </div>`;
+    if(primary){
+      html += `<div class="card sub" style="margin-top:8px">
+        <div class="small" style="font-weight:500">${esc(primary.name)}</div>
+        <div class="xsmall muted" style="margin-top:2px">${esc(primary.blockLabel)}</div>`;
+      if(primary.type==="strength"){
+        html += `<div class="xsmall muted tab-num" style="margin-top:4px">Currently: ${primary.sets}x${primary.reps} @ ${Math.round(primary.pct*100)}%${primary.isTest?' · Test week':''}</div>`;
+      } else {
+        html += `<div class="xsmall muted" style="margin-top:4px">${esc(primary.prescription)}</div>`;
+      }
+      if(primary.complete){
+        html += `<div class="xsmall accent" style="margin-top:6px;text-transform:uppercase">Complete — message Claude to set the next focus for ${day}</div>`;
+      }
+      html += `</div>`;
+    }
+    html += `<div style="margin-top:8px" class="space-y">`;
+    dayData.exercises.forEach(ex=>{
+      html += `<div class="small" style="display:flex;justify-content:space-between;color:#d6d3d1">
+        <span>${esc(ex.name)}</span><span class="muted tab-num">${ex.type==="conditioning"?"For time":"Accessory"}</span></div>`;
+    });
+    if(!primary && dayData.exercises.length===0) html += `<div class="small muted" style="font-style:italic">Rest</div>`;
+    html += `</div></div>`;
+  });
+  return html;
+}
+
+// ---------- Lifts ----------
+
+function renderLifts(){
+  let html = `<div style="margin-bottom:16px">
+    <div class="disp" style="font-size:24px;text-transform:uppercase;font-weight:600">Current 1RMs</div>
+    <p class="xsmall muted" style="margin-top:4px">Tap the pencil to set or correct a max. Anything logged through Today that beats it updates this automatically.</p>
+  </div>`;
+
+  LIFT_GROUPS.forEach(group=>{
+    html += `<div style="margin-bottom:20px"><div class="xsmall muted" style="text-transform:uppercase;margin-bottom:8px">${group.title}</div>
+      <div class="grid2">`;
+    group.lifts.forEach(liftKey=>{
+      const editing = STATE.editingLift === liftKey;
+      const value = STATE.oneRMs[liftKey] || 0;
+      html += `<div class="card" data-lift-card="${liftKey}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="xsmall muted" style="text-transform:uppercase">${LIFT_LABELS[liftKey]}</div>
+          <button class="edit-lift-btn" data-lift="${liftKey}" style="background:none;border:none;cursor:pointer;padding:0">${iconSpan('pencil',13,'#8B8F96')}</button>
+        </div>
+        ${editing
+          ? `<input type="number" class="lift-edit-input tab-num" data-lift="${liftKey}" value="${value}" style="margin-top:4px;font-size:18px;font-weight:600;color:${ACCENT}"/>`
+          : `<div class="disp tab-num accent" style="font-size:24px;font-weight:600;margin-top:2px">${value} <span class="small muted">kg</span></div>`
+        }
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  html += `<div><div class="disp" style="font-size:17px;font-weight:600;text-transform:uppercase;display:flex;align-items:center;gap:6px;margin-bottom:8px">
+    ${iconSpan('trend',16,GOOD)} PR History</div>`;
+  if(STATE.prs.length===0){
+    html += `<div class="card small muted">No PRs logged yet — beat a prescribed rep target on Today to set one automatically.</div>`;
+  } else {
+    STATE.prs.slice(0,15).forEach(pr=>{
+      html += `<div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px">
+        <div><div class="small" style="font-weight:500">${LIFT_LABELS[pr.lift]}</div><div class="xsmall muted">${fmtDate(pr.date)}</div></div>
+        <div style="text-align:right"><div class="disp tab-num good" style="font-weight:600">est. ${pr.estOneRM} kg</div>
+        <div class="xsmall muted tab-num">${pr.weight}kg x ${pr.reps}</div></div></div>`;
+    });
+  }
+  html += `</div>`;
+  return html;
+}
+
+// ---------- Log ----------
+
+function renderLog(){
+  let html = `<div class="flex-gap" style="margin-bottom:16px">
+    <button class="pill ${STATE.logSubTab==='history'?'active':''}" data-logsub="history">History</button>
+    <button class="pill ${STATE.logSubTab==='journal'?'active':''}" data-logsub="journal">Journal</button>
+  </div>`;
+
+  if(STATE.logSubTab==="history"){
+    html += `<div style="position:relative;margin-bottom:12px">
+      <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:#8B8F96">${ICONS.search}</span>
+      <input type="text" id="log-search" value="${esc(STATE.logSearch)}" placeholder="Search by exercise or WOD name" style="padding-left:32px"/>
+    </div>
+    <div id="log-results"></div>`;
+  } else {
+    html += `<div class="flex-gap">
+      <input type="text" id="journal-input" placeholder="Quick WOD note or thought" style="flex:1"/>
+      <button id="journal-add-btn" style="background:${ACCENT};border:none;border-radius:12px;width:40px;display:flex;align-items:center;justify-content:center;cursor:pointer">${iconSpan('plus',18,'#121316')}</button>
+    </div>`;
+    if(STATE.journal.length===0){
+      html += `<div class="card small muted" style="margin-top:12px">No notes yet.</div>`;
+    } else {
+      html += `<div style="margin-top:12px" class="space-y">`;
+      STATE.journal.forEach(j=>{
+        html += `<div class="card" style="padding:12px"><div class="xsmall muted" style="margin-bottom:4px">${fmtDate(j.date)}</div>
+          <div class="small" style="color:#e7e5e4">${esc(j.text)}</div></div>`;
+      });
+      html += `</div>`;
+    }
+  }
+  return html;
+}
+
+function renderLogResults(){
+  const filtered = STATE.logs.filter(l => logName(l).toLowerCase().includes(STATE.logSearch.toLowerCase()));
+  let html = '';
+  if(filtered.length===0){
+    html = `<div class="card small muted">${STATE.logs.length===0 ? "Nothing logged yet." : "No matches for that search."}</div>`;
+  } else {
+    html = `<div class="space-y">`;
+    filtered.slice(0,60).forEach(l=>{
+      html += `<div class="card" style="padding:12px">
+        <div style="display:flex;justify-content:space-between"><div class="small" style="font-weight:500">${esc(logName(l))}
+          ${l.isTest ? `<span class="xsmall good" style="margin-left:6px">TEST</span>` : ''}</div>
+          <div class="xsmall muted">${fmtDate(l.date)}</div></div>
+        <div class="xsmall muted tab-num" style="margin-top:2px">${esc(logLine(l))}</div></div>`;
+    });
+    html += `</div>`;
+  }
+  return html;
+}
+
+// ============================================================
+// Event handling
+// ============================================================
+
+function attachGlobalHandlers(){
+  document.querySelectorAll('[data-tab]').forEach(btn=>{
+    btn.onclick = () => { STATE.tab = btn.dataset.tab; render(); };
+  });
+}
+
+function attachTabHandlers(){
+  if(STATE.tab==="today"){ attachTodayHandlers(); attachWodHandlers(); }
+  else if(STATE.tab==="lifts") attachLiftsHandlers();
+  else if(STATE.tab==="log") attachLogHandlers();
+}
+
+function attachTodayHandlers(){
+  document.querySelectorAll('[data-day]').forEach(btn=>{
+    btn.onclick = () => { STATE.selectedDay = btn.dataset.day; render(); };
+  });
+
+  document.querySelectorAll('[data-card][data-extype="strength"]').forEach(card=>{
+    const ex = JSON.parse(card.dataset.exjson.replace(/&#39;/g,"'"));
+    const btn = card.querySelector('.log-strength-btn');
+    btn.onclick = () => {
+      const sets = parseFloat(card.querySelector('[data-f="sets"]').value) || 0;
+      const reps = parseFloat(card.querySelector('[data-f="reps"]').value) || 0;
+      const weight = parseFloat(card.querySelector('[data-f="weight"]').value) || 0;
+      logStrength(ex, weight, reps, sets);
+      btn.disabled = true; btn.classList.remove('btn-primary'); btn.classList.add('btn-done');
+      btn.textContent = 'Logged';
+      card.querySelector('.done-check').style.display = 'inline-flex';
+    };
+  });
+
+  document.querySelectorAll('[data-card][data-extype="skill"]').forEach(card=>{
+    const ex = JSON.parse(card.dataset.exjson.replace(/&#39;/g,"'"));
+    const btn = card.querySelector('.log-skill-btn');
+    const input = card.querySelector('.result-input');
+    btn.onclick = () => {
+      if(!input.value.trim()) return;
+      logSkill(ex, input.value.trim());
+      btn.disabled = true; btn.classList.remove('btn-primary'); btn.classList.add('btn-done');
+      btn.textContent = 'Logged';
+    };
+  });
+
+  document.querySelectorAll('[data-card][data-extype="conditioning"]').forEach(card=>{
+    const ex = JSON.parse(card.dataset.exjson.replace(/&#39;/g,"'"));
+    const btn = card.querySelector('.log-conditioning-btn');
+    const input = card.querySelector('.result-input');
+    btn.onclick = () => {
+      if(!input.value.trim()) return;
+      logConditioning(ex, input.value.trim());
+      btn.disabled = true; btn.classList.remove('btn-primary'); btn.classList.add('btn-done');
+      btn.textContent = 'Logged';
+    };
+  });
+
+  document.querySelectorAll('[data-card][data-extype="accessory"]').forEach(card=>{
+    const ex = JSON.parse(card.dataset.exjson.replace(/&#39;/g,"'"));
+    const btn = card.querySelector('.log-accessory-btn');
+    btn.onclick = () => {
+      const sets = parseFloat(card.querySelector('[data-f="sets"]').value) || 0;
+      const reps = parseFloat(card.querySelector('[data-f="reps"]').value) || 0;
+      const weight = parseFloat(card.querySelector('[data-f="weight"]').value) || 0;
+      if(!sets || !reps) return;
+      logAccessory(ex, sets, reps, weight);
+      btn.disabled = true; btn.classList.remove('btn-primary'); btn.classList.add('btn-done');
+      btn.textContent = 'Logged';
+      card.querySelector('.done-check').style.display = 'inline-flex';
+    };
+  });
+
+  const copyBtn = document.getElementById('copy-whoop-btn');
+  if(copyBtn){
+    copyBtn.onclick = async () => {
+      const text = buildWhoopText(STATE.logs, STATE.journal);
+      const ok = await copyToClipboard(text);
+      if(ok){
+        copyBtn.classList.add('btn-copied');
+        document.getElementById('copy-whoop-label').textContent = "Copied";
+        setTimeout(()=>{
+          if(document.getElementById('copy-whoop-btn')){
+            copyBtn.classList.remove('btn-copied');
+            document.getElementById('copy-whoop-label').textContent = "Copy for WHOOP";
+          }
+        }, 2000);
+      }
+    };
+  }
+}
+
+function attachWodHandlers(){
+  const parseBtn = document.getElementById('wod-parse-btn');
+  const rawEl = document.getElementById('wod-raw');
+  const errEl = document.getElementById('wod-error');
+  const parsedEl = document.getElementById('wod-parsed');
+  const skipWrap = document.getElementById('wod-skip-wrap');
+
+  function refreshSkip(){
+    skipWrap.innerHTML = (!STATE.parsedWod && rawEl.value.trim())
+      ? `<button class="btn" id="wod-skip-btn" style="background:none;color:#8B8F96;text-decoration:underline;margin-top:8px;font-size:11px">Skip parsing, save raw text as-is</button>`
+      : '';
+    const skipBtn = document.getElementById('wod-skip-btn');
+    if(skipBtn) skipBtn.onclick = () => saveWod(null, rawEl.value);
+  }
+  rawEl.oninput = refreshSkip;
+  refreshSkip();
+
+  parseBtn.onclick = async () => {
+    const raw = rawEl.value;
+    if(!raw.trim()) return;
+    STATE.parsing = true;
+    parseBtn.textContent = "Reading it…";
+    parseBtn.disabled = true;
+    errEl.textContent = '';
+    try{
+      const p = await parseWodWithClaude(raw);
+      STATE.parsedWod = p;
+      parsedEl.innerHTML = renderParsedWod(p);
+      wireParsedWod(raw);
+    }catch(e){
+      errEl.textContent = "Couldn't parse that — you can still save it as raw text below.";
+    }finally{
+      STATE.parsing = false;
+      parseBtn.textContent = "Read & Break Down";
+      parseBtn.disabled = false;
+      refreshSkip();
+    }
+  };
+}
+
+function wireParsedWod(rawText){
+  const saveBtn = document.getElementById('wod-save-btn');
+  if(!saveBtn) return;
+  saveBtn.onclick = () => {
+    const loads = {};
+    document.querySelectorAll('.load-input').forEach(inp=>{ loads[inp.dataset.move] = inp.value; });
+    const result = document.getElementById('wod-result').value;
+    saveWod(STATE.parsedWod, rawText, result, loads);
+  };
+}
+
+function saveWod(parsed, rawText, result, loads){
+  const entry = {
+    id:`${Date.now()}`, date:new Date().toISOString(), type:"customWod", day: STATE.selectedDay,
+    title: parsed?.title || "Custom WOD", format: parsed?.format || null, timeCap: parsed?.timeCap || null,
+    movements: parsed?.movements || [], notes: parsed?.notes || null,
+    rawText, result: result || "", loads: loads || {},
+  };
+  persistLogs([entry, ...STATE.logs]);
+  STATE.parsedWod = null;
+  renderMain();
+}
+
+function attachLiftsHandlers(){
+  document.querySelectorAll('.edit-lift-btn').forEach(btn=>{
+    btn.onclick = () => {
+      STATE.editingLift = STATE.editingLift === btn.dataset.lift ? null : btn.dataset.lift;
+      renderMain();
+      const input = document.querySelector('.lift-edit-input');
+      if(input) input.focus();
+    };
+  });
+  document.querySelectorAll('.lift-edit-input').forEach(input=>{
+    input.onblur = () => {
+      update1RM(input.dataset.lift, input.value);
+      STATE.editingLift = null;
+      renderMain();
+    };
+    input.onkeydown = (e) => { if(e.key==='Enter') input.blur(); };
+  });
+}
+
+function attachLogHandlers(){
+  document.querySelectorAll('[data-logsub]').forEach(btn=>{
+    btn.onclick = () => { STATE.logSubTab = btn.dataset.logsub; renderMain(); };
+  });
+  if(STATE.logSubTab==="history"){
+    const resultsEl = document.getElementById('log-results');
+    resultsEl.innerHTML = renderLogResults();
+    const searchEl = document.getElementById('log-search');
+    searchEl.oninput = () => { STATE.logSearch = searchEl.value; resultsEl.innerHTML = renderLogResults(); };
+  } else {
+    const addBtn = document.getElementById('journal-add-btn');
+    const input = document.getElementById('journal-input');
+    addBtn.onclick = () => { addJournal(input.value); input.value=''; renderMain(); };
+    input.onkeydown = (e) => { if(e.key==='Enter'){ addJournal(input.value); input.value=''; renderMain(); } };
+  }
+}
+
+init();
+</script>
+</body>
+</html>
