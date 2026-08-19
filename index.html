@@ -355,6 +355,64 @@ function getSlotWeekInfo(day, slotState){
   return { block, weekInBlock: Math.min(weekNumber,6), complete: weekNumber > 6 };
 }
 
+// The Sunday-anchored week in which a slot's week-6 test falls.
+function projectedTestWeek(startDateISO){
+  const msPerWeek = 7*24*60*60*1000;
+  return new Date(startOfWeekSunday(new Date(startDateISO)).getTime() + 5*msPerWeek);
+}
+
+// A block restarts from the week its test was actually done - not from when
+// the calendar said it was due. Miss a test week and do it later, and the new
+// cycle simply begins after the real test, keeping each lift on its own
+// rhythm instead of silently drifting into another lift's test week.
+function realignSlotsAfterTests(slotState, logs){
+  const next = { ...slotState };
+  let changed = false;
+
+  Object.keys(ACTIVE_BLOCKS).forEach(day=>{
+    const block = ACTIVE_BLOCKS[day];
+    const state = next[day];
+    if(!state) return;
+    const exId = `${day}-primary-${block.key}`;
+    const testLog = logs
+      .filter(l => l.exerciseId === exId && l.isTest)
+      .sort((a,b)=> new Date(b.date) - new Date(a.date))[0];
+    if(!testLog) return;
+    if(state.lastTestLogId === testLog.id) return;   // already accounted for
+
+    // New cycle begins the week after the test was actually performed.
+    const msPerWeek = 7*24*60*60*1000;
+    let newStart = new Date(startOfWeekSunday(new Date(testLog.date)).getTime() + msPerWeek);
+
+    // Never let two lifts land their test week together.
+    newStart = avoidTestCollision(day, newStart, next);
+
+    next[day] = { ...state, startDate: newStart.toISOString(), lastTestLogId: testLog.id };
+    changed = true;
+  });
+
+  return { slotState: next, changed };
+}
+
+// Push a proposed start date forward a week at a time until its test week is
+// free. Capped so a crowded schedule can never loop forever.
+function avoidTestCollision(day, proposedStart, slotState){
+  const msPerWeek = 7*24*60*60*1000;
+  let start = new Date(proposedStart);
+  for(let attempt=0; attempt<6; attempt++){
+    const mine = projectedTestWeek(start.toISOString()).getTime();
+    const clash = Object.keys(ACTIVE_BLOCKS).some(other=>{
+      if(other === day) return false;
+      const os = slotState[other];
+      if(!os) return false;
+      return projectedTestWeek(os.startDate).getTime() === mine;
+    });
+    if(!clash) return start;
+    start = new Date(start.getTime() + msPerWeek);
+  }
+  return start;
+}
+
 function buildPrimaryExercise(day, slotState){
   const info = getSlotWeekInfo(day, slotState);
   if(!info) return null;
@@ -532,7 +590,11 @@ async function init(){
     changed = true;
   });
   if(changed) saveKey("slotState", nextSlotState);
-  STATE.slotState = nextSlotState;
+  // Catch up on any test already completed - including one done late, which
+  // is what would otherwise leave two lifts testing in the same week.
+  const realigned = realignSlotsAfterTests(nextSlotState, STATE.logs);
+  if(realigned.changed) saveKey("slotState", realigned.slotState);
+  STATE.slotState = realigned.slotState;
   STATE.loaded = true;
   render();
 }
@@ -559,7 +621,14 @@ function logStrength(ex, setDetails){
   };
   persistLogs([entry, ...STATE.logs]);
   applyPrIfBeaten(logId, ex.lift, topWeight, topSet.reps, entry.date);
+  if(ex.isTest) refreshSlotAlignment();
   return true;
+}
+
+// Re-derive block start dates from completed tests and persist the result.
+function refreshSlotAlignment(){
+  const r = realignSlotsAfterTests(STATE.slotState, STATE.logs);
+  if(r.changed){ STATE.slotState = r.slotState; saveKey("slotState", r.slotState); }
 }
 
 // Raise the 1RM if this set beats it, recording both which log produced the
@@ -622,7 +691,22 @@ function updateTextLog(logId, result){
 
 function deleteLog(logId){
   revertPrsForLog(logId);
+  const entry = STATE.logs.find(l => l.id === logId);
   persistLogs(STATE.logs.filter(l => l.id !== logId));
+  // If this test log had advanced a block, release that link so the slot can
+  // re-derive from whatever test (if any) now stands as the latest.
+  if(entry && entry.isTest){
+    const next = { ...STATE.slotState };
+    let touched = false;
+    Object.keys(next).forEach(day=>{
+      if(next[day] && next[day].lastTestLogId === logId){
+        next[day] = { ...next[day], lastTestLogId: null };
+        touched = true;
+      }
+    });
+    if(touched){ STATE.slotState = next; saveKey("slotState", next); }
+    refreshSlotAlignment();
+  }
 }
 
 function logAccessory(ex, setDetails){
@@ -645,6 +729,7 @@ function logConditioning(ex, result){
 function logSkill(ex, result){
   persistLogs([{ id:uid(), date:new Date().toISOString(), day:STATE.selectedDay,
     exerciseId:ex.id, exerciseName:ex.name, type:"skill", result, isTest:ex.isTest||false }, ...STATE.logs]);
+  if(ex.isTest) refreshSlotAlignment();
 }
 function update1RM(lift, value){
   const v = parseFloat(value);
@@ -744,8 +829,9 @@ function renderToday(){
   if(primary && primary.complete){
     html += `<div class="card warn" style="display:flex;gap:8px;align-items:flex-start">
       ${iconSpan('refresh',15,ACCENT)}
-      <div class="small"><span class="accent" style="font-weight:600">${day}'s block is complete.</span>
-      Tell Claude in chat what to focus on next - your history stays in Log.</div></div>`;
+      <div class="small"><span class="accent" style="font-weight:600">Test week overdue.</span>
+      Log the ${primary.isTest && primary.testType==="repMax" ? `${primary.testReps||5}RM` : "1RM"} whenever you get to it -
+      ${esc(primary.name)} then restarts at week 1 off your new max. Tell Claude in chat only if you want a different lift.</div></div>`;
   }
 
   // ----- Strength section -----
@@ -1011,7 +1097,7 @@ function savedWodCard(day, w){
 
 function renderProgram(){
   let html = `<div class="disp" style="font-size:24px;text-transform:uppercase;font-weight:600;margin-bottom:4px">Weekly Program</div>
-  <p class="xsmall muted" style="margin-bottom:12px">Each weekday runs one focus lift on its own 6-week block, staggered so they don't all finish at once. Weeks roll over Sunday 11pm.</p>`;
+  <p class="xsmall muted" style="margin-bottom:12px">Each weekday runs one focus lift on a 6-week block. After the week-6 test the same lift restarts at week 1 off your new max, staggered so no two lifts test in the same week. Weeks roll over Sunday 11pm. Ask Claude to swap a lift whenever you want a change.</p>`;
   DAY_ORDER.forEach(day=>{
     const primary = buildPrimaryExercise(day, STATE.slotState);
     const dayData = ACCESSORY_PROGRAM[day];
@@ -1027,7 +1113,7 @@ function renderProgram(){
       html += primary.type==="strength"
         ? `<div class="xsmall muted tab-num" style="margin-top:4px">Now: ${primary.sets}x${primary.reps} @ ${Math.round(primary.pct*100)}%${primary.isTest?' - Test week':''}</div>`
         : `<div class="xsmall muted" style="margin-top:4px">${esc(primary.prescription)}</div>`;
-      if(primary.complete) html += `<div class="xsmall accent" style="margin-top:6px;text-transform:uppercase">Complete - set the next focus</div>`;
+      if(primary.complete) html += `<div class="xsmall accent" style="margin-top:6px;text-transform:uppercase">Test overdue - restarts once logged</div>`;
       html += `</div>`;
     }
     html += `<div style="margin-top:8px">`;
