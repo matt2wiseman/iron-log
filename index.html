@@ -77,9 +77,25 @@
   input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   input[type=number] { -moz-appearance: textfield; }
 
-  .setrow { display: grid; grid-template-columns: 34px 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .setrow { display: grid; grid-template-columns: 24px 26px 1fr 1fr; gap: 7px; align-items: center; margin-bottom: 8px; }
   .setrow .setno { font-family: 'Oswald', sans-serif; font-size: 13px; color: #8B8F96; text-align: center; }
   .setrow.head .lbl { margin-bottom: 0; }
+  .setrow.ticked .setno { color: #7FB069; }
+
+  .settick {
+    -webkit-appearance: none; appearance: none; margin: 0;
+    width: 22px; height: 22px; border-radius: 6px;
+    border: 1.5px solid #4A4E56; background: #26292E; cursor: pointer;
+    display: grid; place-content: center;
+  }
+  .settick::before {
+    content: ""; width: 12px; height: 12px; transform: scale(0);
+    transition: transform 0.12s ease-in-out; background: #121316;
+    clip-path: polygon(14% 44%, 0 65%, 43% 100%, 100% 16%, 82% 0%, 39% 66%);
+  }
+  .settick:checked { background: #7FB069; border-color: #7FB069; }
+  .settick:checked::before { transform: scale(1); }
+  .settick:focus { box-shadow: none; }
 
   .btn { width: 100%; border: none; border-radius: 12px; padding: 10px;
     font-family: 'Oswald', sans-serif; text-transform: uppercase; font-weight: 600;
@@ -540,6 +556,7 @@ const STATE = {
   prs: [],
   slotState: {},
   dayWods: {},          // { Monday: {..wod..}, ... } - cleared each Sunday 23:00
+  setTicks: {},         // { exerciseId: [bool,...] } - working state during a session
   loaded: false,
   open: { strength: true, wod: false },   // collapsible section state
   editingLift: null,
@@ -551,13 +568,14 @@ const STATE = {
 };
 
 async function init(){
-  const [rms,l,j,p,storedSlotState,dayWods] = await Promise.all([
+  const [rms,l,j,p,storedSlotState,dayWods,storedTicks] = await Promise.all([
     loadKey("oneRMs", DEFAULT_ONE_RMS),
     loadKey("logs", []),
     loadKey("journal", []),
     loadKey("prs", []),
     loadKey("slotState", {}),
     loadKey("dayWods", {}),
+    loadKey("setTicks", {}),
   ]);
   STATE.oneRMs = { ...DEFAULT_ONE_RMS, ...rms };
   STATE.logs = l; STATE.journal = j; STATE.prs = p;
@@ -570,6 +588,14 @@ async function init(){
   });
   STATE.dayWods = freshWods;
   if(Object.keys(freshWods).length !== Object.keys(dayWods||{}).length) saveKey("dayWods", freshWods);
+
+  // Set ticks are working state for the current week only.
+  if(storedTicks && storedTicks.weekStart === boundary.toISOString()){
+    STATE.setTicks = storedTicks.ticks || {};
+  } else {
+    STATE.setTicks = {};
+    saveKey("setTicks", { weekStart: boundary.toISOString(), ticks: {} });
+  }
 
   const nextSlotState = { ...storedSlotState };
   let changed = false;
@@ -604,6 +630,26 @@ function persistOneRMs(next){ STATE.oneRMs = next; saveKey("oneRMs", next); }
 function persistJournal(next){ STATE.journal = next; saveKey("journal", next); }
 function persistPrs(next){ STATE.prs = next; saveKey("prs", next); }
 function persistDayWods(next){ STATE.dayWods = next; saveKey("dayWods", next); }
+
+function persistSetTicks(next){
+  STATE.setTicks = next;
+  saveKey("setTicks", { weekStart: weekBoundary().toISOString(), ticks: next });
+}
+function setTicksFor(exId, count){
+  const t = STATE.setTicks[exId] || [];
+  return Array.from({length:count}, (_,i)=> !!t[i]);
+}
+function toggleSetTick(exId, index, count){
+  const cur = setTicksFor(exId, count);
+  cur[index] = !cur[index];
+  persistSetTicks({ ...STATE.setTicks, [exId]: cur });
+  return cur[index];
+}
+function clearSetTicks(exId){
+  const next = { ...STATE.setTicks };
+  delete next[exId];
+  persistSetTicks(next);
+}
 
 // Log a strength lift from per-set detail rows.
 function logStrength(ex, setDetails){
@@ -859,7 +905,7 @@ function renderToday(){
   const copyText = buildDayWhoopText(day, STATE.logs, STATE.journal, STATE.dayWods[day]);
   html += `<div style="margin-top:24px;display:flex;flex-direction:column;align-items:center;gap:6px">
     <button class="btn-copy-sm" id="copy-whoop-btn" ${copyText?'':'disabled'}>
-      ${ICONS.copy}<span id="copy-whoop-label">Copy ${day} for WHOOP</span></button>
+      ${ICONS.copy}<span id="copy-whoop-label">Copy ${day} Workout</span></button>
     ${copyText ? '' : `<div class="xsmall muted">Log something to enable</div>`}
   </div>`;
 
@@ -890,12 +936,22 @@ function numInput(cls, value, placeholder, extra){
     placeholder="${placeholder||''}" ${extra||''}/>`;
 }
 
+// Small progress line so a part-finished lift is obvious at a glance. Always
+// rendered (blank at zero) so the tick handler has an element to update.
+function tickProgress(exId, count){
+  const done = setTicksFor(exId, count).filter(Boolean).length;
+  const all = done === count && count > 0;
+  return `<div class="xsmall tick-progress" style="margin-top:10px;color:${all?GOOD:'#8B8F96'}">${done?`${done}/${count} sets ticked${all?' - ready to log':''}`:''}</div>`;
+}
+
 function setRows(ex, prefill, showWeight){
-  let rows = `<div class="setrow head"><div></div>
+  const ticks = setTicksFor(ex.id, ex.sets);
+  let rows = `<div class="setrow head"><div></div><div></div>
     <div class="lbl">Reps</div>${showWeight?`<div class="lbl">Weight kg</div>`:`<div class="lbl">&nbsp;</div>`}</div>`;
   for(let i=0;i<ex.sets;i++){
     const p = prefill[i] || {};
-    rows += `<div class="setrow" data-set="${i}">
+    rows += `<div class="setrow ${ticks[i]?'ticked':''}" data-set="${i}">
+      <input type="checkbox" class="settick" data-tickidx="${i}" ${ticks[i]?'checked':''} aria-label="Set ${i+1} done"/>
       <div class="setno">${i+1}</div>
       ${numInput('f-reps', p.reps ?? ex.reps, '')}
       ${showWeight ? numInput('f-weight', p.weight ?? '', '-') : `<div class="xsmall muted" style="text-align:center">bodyweight</div>`}
@@ -935,7 +991,7 @@ function strengthCard(ex){
     </div>
     ${last ? `<div class="card sub" style="margin-top:10px"><div class="lbl">Last time</div>
       <div class="small" style="color:#d6d3d1;margin-top:2px">${esc(logLine(last))}</div></div>`:''}
-    ${already ? `<div class="xsmall good" style="margin-top:10px">Logged ${fmtDate(already.date)}${already.editedAt?' (edited)':''} - adjust below to correct it</div>`:''}
+    ${already ? `<div class="xsmall good" style="margin-top:10px">Logged ${fmtDate(already.date)}${already.editedAt?' (edited)':''} - adjust below to correct it</div>`:tickProgress(ex.id, rowCount)}
     <div style="margin-top:12px">${setRows({...ex, sets:rowCount}, prefill, true)}</div>
     ${already
       ? `<div class="flex-gap">
@@ -971,7 +1027,7 @@ function accessoryCard(ex){
     </div>
     ${last ? `<div class="card sub" style="margin-top:10px"><div class="lbl">Last time</div>
       <div class="small" style="color:#d6d3d1;margin-top:2px">${esc(logLine(last))}</div></div>`:''}
-    ${already ? `<div class="xsmall good" style="margin-top:10px">Logged ${fmtDate(already.date)}${already.editedAt?' (edited)':''} - adjust below to correct it</div>`:''}
+    ${already ? `<div class="xsmall good" style="margin-top:10px">Logged ${fmtDate(already.date)}${already.editedAt?' (edited)':''} - adjust below to correct it</div>`:tickProgress(ex.id, rowCount)}
     <div style="margin-top:12px">${setRows({...ex, sets:rowCount}, prefill, showWeight)}</div>
     ${already
       ? `<div class="flex-gap">
@@ -1231,6 +1287,31 @@ function wireNumFields(scope){
   });
 }
 
+// Ticks update the row in place rather than re-rendering the whole tab, so a
+// weight being typed in another row isn't wiped out mid-session.
+function wireSetTicks(){
+  document.querySelectorAll('[data-card] .settick').forEach(box=>{
+    box.onchange = () => {
+      const card = box.closest('[data-card]');
+      if(!card) return;
+      const exId = card.dataset.card;
+      const rowCount = card.querySelectorAll('.setrow[data-set]').length;
+      const idx = parseInt(box.dataset.tickidx,10);
+      const on = toggleSetTick(exId, idx, rowCount);
+      box.checked = on;
+      const row = card.querySelector('.setrow[data-set="'+idx+'"]');
+      if(row) row.classList.toggle('ticked', on);
+      const prog = card.querySelector('.tick-progress');
+      if(prog){
+        const done = setTicksFor(exId, rowCount).filter(Boolean).length;
+        const all = done === rowCount;
+        prog.textContent = done ? done+'/'+rowCount+' sets ticked'+(all?' - ready to log':'') : '';
+        prog.style.color = all ? GOOD : '#8B8F96';
+      }
+    };
+  });
+}
+
 function readSetRows(card){
   return Array.from(card.querySelectorAll('.setrow[data-set]')).map(row=>({
     reps: parseFloat(row.querySelector('.f-reps')?.value) || 0,
@@ -1240,6 +1321,7 @@ function readSetRows(card){
 
 function attachTodayHandlers(){
   wireNumFields();
+  wireSetTicks();
 
   document.querySelectorAll('[data-day]').forEach(b=>{
     b.onclick = () => { STATE.selectedDay = b.dataset.day; STATE.wodDraft=null; STATE.wodEditing=false; renderMain(); };
@@ -1257,7 +1339,7 @@ function attachTodayHandlers(){
     const logBtn = card.querySelector('.log-sets-btn');
     if(logBtn) logBtn.onclick = () => {
       const ok = isStrength ? logStrength(ex, readSetRows(card)) : logAccessory(ex, readSetRows(card));
-      if(ok) renderMain();
+      if(ok){ clearSetTicks(ex.id); renderMain(); }
     };
 
     const updBtn = card.querySelector('.update-sets-btn');
