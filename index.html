@@ -147,7 +147,7 @@ const LIFT_LABELS = {
   bench:"Bench Press", ohp:"Strict Press", pushPress:"Push Press", pushJerk:"Push Jerk", splitJerk:"Split Jerk",
   snatch:"Snatch", powerSnatch:"Power Snatch", hangSnatch:"Hang Snatch",
   clean:"Clean", powerClean:"Power Clean", hangClean:"Hang Clean", cleanAndJerk:"Clean & Jerk",
-  thruster:"Thruster", hipThrust:"Hip Thrust",
+  thruster:"Thruster", hipThrust:"Hip Thrust", weightedPullup:"Weighted Pull-up (added kg)",
 };
 
 const LIFT_GROUPS = [
@@ -156,7 +156,7 @@ const LIFT_GROUPS = [
   { title:"Press", lifts:["bench","ohp","pushPress","pushJerk","splitJerk"] },
   { title:"Snatch", lifts:["snatch","powerSnatch","hangSnatch"] },
   { title:"Clean", lifts:["clean","powerClean","hangClean","cleanAndJerk"] },
-  { title:"Other", lifts:["thruster","hipThrust"] },
+  { title:"Other", lifts:["thruster","hipThrust","weightedPullup"] },
 ];
 
 const LIFT_INCREMENT = {
@@ -164,7 +164,7 @@ const LIFT_INCREMENT = {
   bench:2.5, ohp:2.5, pushPress:2.5, pushJerk:2.5, splitJerk:2.5,
   snatch:1, powerSnatch:1, hangSnatch:1,
   clean:2.5, powerClean:2.5, hangClean:2.5, cleanAndJerk:2.5,
-  thruster:2.5, hipThrust:5,
+  thruster:2.5, hipThrust:5, weightedPullup:2.5,
 };
 
 const DEFAULT_ONE_RMS = Object.keys(LIFT_LABELS).reduce((acc,key)=>{
@@ -172,112 +172,297 @@ const DEFAULT_ONE_RMS = Object.keys(LIFT_LABELS).reduce((acc,key)=>{
   return acc;
 },{});
 
-// ---------- Block templates (research-based, one method per lift) ----------
+// ---------- Blocks as phases, not fixed week lists ----------
+// A block describes the SHAPE of a progression: an ordered set of phases, each
+// with its own rep scheme, intensity range and execution cue, plus a `share`
+// saying roughly how much of the block it should occupy. The week list is then
+// generated for whatever block length is chosen (5-10 weeks), so the coaching
+// intent survives at any length instead of being stretched into nonsense.
 
-function frontSquatBlock(){
-  return { key:"frontSquat-fs-v2", label:"Pause to Peak", type:"barbell", lift:"frontSquat",
-    name:"Front Squat", testType:"1rm", weeks:[
-    {week:1,sets:4,reps:6,pct:0.65,style:"2s pause in the hole, controlled up"},
-    {week:2,sets:4,reps:5,pct:0.70,style:"2s pause in the hole"},
-    {week:3,sets:5,reps:3,pct:0.78,style:"No pause, drive hard out of the bottom"},
-    {week:4,sets:5,reps:3,pct:0.82,style:"Reset the rack position every rep"},
-    {week:5,sets:4,reps:2,pct:0.88,style:"Heavy doubles, stop if the elbows drop"},
-    {week:6,sets:1,reps:1,pct:0.95,isTest:true,style:"Build to a max single"},
-  ]};
-}
-function benchBlock(){
-  return { key:"bench-bp-v2", label:"Paused Strength to Overload", type:"barbell", lift:"bench",
-    name:"Bench Press", testType:"1rm", weeks:[
-    {week:1,sets:4,reps:6,pct:0.68,style:"1s pause on the chest every rep"},
-    {week:2,sets:4,reps:5,pct:0.73,style:"1s pause on the chest"},
-    {week:3,sets:5,reps:4,pct:0.78,style:"2s pause - hardest week for position"},
-    {week:4,sets:4,reps:4,pct:0.80,style:"Touch-and-go, use the overload"},
-    {week:5,sets:3,reps:2,pct:0.88,style:"Touch-and-go doubles, sharp lockout"},
-    {week:6,sets:1,reps:1,pct:0.95,isTest:true,style:"Build to a max single"},
-  ]};
-}
-function hipThrustBlock(){
-  return { key:"hipThrust-ht-v2", label:"Double Progression", type:"barbell", lift:"hipThrust",
-    name:"Hip Thrust", testType:"repMax", testReps:5, weeks:[
-    {week:1,sets:4,reps:12,pct:0.60,style:"2s squeeze at lockout every rep"},
-    {week:2,sets:4,reps:10,pct:0.66,style:"2s squeeze at lockout"},
-    {week:3,sets:4,reps:8,pct:0.72,style:"Full lockout, ribs down"},
-    {week:4,sets:4,reps:8,pct:0.76,style:"Add load only if all sets hit 8"},
-    {week:5,sets:3,reps:6,pct:0.82,style:"Heavy, still full lockout"},
-    {week:6,sets:1,reps:5,pct:0.85,isTest:true,style:"Test: heaviest clean set of 5"},
-  ]};
-}
-function strictPressBlock(){
-  return { key:"ohp-sp-v2", label:"Volume Accumulation", type:"barbell", lift:"ohp",
-    name:"Strict Press", testType:"1rm", weeks:[
-    {week:1,sets:5,reps:8,pct:0.62,style:"Strict - no leg drive, no layback"},
-    {week:2,sets:5,reps:6,pct:0.68,style:"Strict, brace hard"},
-    {week:3,sets:5,reps:5,pct:0.74,style:"Strict, full lockout overhead"},
-    {week:4,sets:4,reps:4,pct:0.80,style:"Strict, reset each rep at the shoulder"},
-    {week:5,sets:4,reps:2,pct:0.87,style:"Heavy doubles"},
-    {week:6,sets:1,reps:1,pct:0.95,isTest:true,style:"Build to a max single"},
-  ]};
-}
-function deadliftBlock(){
-  return { key:"deadlift-dl-v2", label:"Cluster Loading", type:"barbell", lift:"deadlift",
-    name:"Deadlift", testType:"1rm", weeks:[
-    {week:1,sets:4,reps:5,pct:0.70,style:"Straight sets, dead stop each rep"},
-    {week:2,sets:5,reps:3,pct:0.78,style:"Cluster: 3 reps, 20s rest, repeat"},
-    {week:3,sets:5,reps:2,pct:0.83,style:"Cluster: 2 reps, 30s rest, repeat"},
-    {week:4,sets:6,reps:2,pct:0.86,style:"Cluster: 2 reps, 30s rest - hardest week"},
-    {week:5,sets:5,reps:1,pct:0.90,style:"Cluster singles, 30s rest between"},
-    {week:6,sets:1,reps:1,pct:0.95,isTest:true,style:"Build to a max single"},
-  ]};
-}
-function hspuSkillBlock(){
-  return { key:"hspu-skill", label:"Gymnastics Skill Progression", type:"skill", name:"Handstand Push-up", weeks:[
-    {week:1,prescription:"Wall-facing Handstand Hold 5 x 30-45s + Pike Push-up 4 x 8"},
-    {week:2,prescription:"Wall-facing Handstand Hold 5 x 45-60s + Deficit Pike Push-up 4 x 10"},
-    {week:3,prescription:"Kick-up to Handstand practice 8 attempts + Negative HSPU 4 x 3"},
-    {week:4,prescription:"Strict HSPU singles/doubles with light assistance, 5 sets"},
-    {week:5,prescription:"Strict HSPU 4 x 3-5 unbroken, minimal assistance"},
-    {week:6,prescription:"Test: max unbroken strict Handstand Push-ups",isTest:true},
-  ]};
+function slugify(name){
+  return String(name||"").toLowerCase().replace(/\(.*?\)/g,"")
+    .replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
 }
 
-const ACTIVE_BLOCKS = {
-  Monday: frontSquatBlock(),
-  Tuesday: benchBlock(),
-  Wednesday: hipThrustBlock(),
-  Thursday: strictPressBlock(),
-  Friday: deadliftBlock(),
+// Spread `total` weeks across phases in proportion to their share, giving every
+// phase at least one week and handing any remainder to the largest shares.
+function distributeWeeks(phases, total){
+  const sumShare = phases.reduce((a,p)=>a+(p.share||1),0);
+  let alloc = phases.map(p => Math.max(1, Math.floor((p.share||1)/sumShare*total)));
+  let used = alloc.reduce((a,b)=>a+b,0);
+  while(used > total){
+    const i = alloc.indexOf(Math.max(...alloc));
+    if(alloc[i] <= 1) break;
+    alloc[i]--; used--;
+  }
+  const order = phases.map((p,i)=>({i,share:p.share||1})).sort((a,b)=>b.share-a.share);
+  let k = 0;
+  while(used < total){ alloc[order[k % order.length].i]++; used++; k++; }
+  return alloc;
+}
+
+// Concrete week-by-week prescription for a block of `totalWeeks`. The final
+// week is always the test; everything before it is working weeks.
+function generateWeeks(block, totalWeeks){
+  const working = Math.max(1, totalWeeks - 1);
+  const alloc = distributeWeeks(block.phases, working);
+  const weeks = [];
+  let w = 1;
+  block.phases.forEach((ph, pi)=>{
+    const n = alloc[pi];
+    for(let j=0;j<n;j++){
+      const t = n === 1 ? 0 : j/(n-1);
+      const pct = ph.pctEnd === undefined ? ph.pctStart : ph.pctStart + (ph.pctEnd - ph.pctStart)*t;
+      weeks.push({
+        week: w++,
+        sets: Array.isArray(ph.sets) ? ph.sets[Math.min(j, ph.sets.length-1)] : ph.sets,
+        reps: Array.isArray(ph.reps) ? ph.reps[Math.min(j, ph.reps.length-1)] : ph.reps,
+        pct: Math.round(pct*1000)/1000,
+        style: ph.style,
+      });
+    }
+  });
+  weeks.push({ week: w, sets: block.test.sets, reps: block.test.reps, pct: block.test.pct,
+               style: block.test.style, isTest: true });
+  return weeks;
+}
+
+// Skill blocks are prescriptions in words, so they scale by repeating stages
+// rather than interpolating a percentage.
+function generateSkillWeeks(block, totalWeeks){
+  const working = Math.max(1, totalWeeks - 1);
+  const alloc = distributeWeeks(block.stages.map(s=>({share:s.share||1})), working);
+  const weeks = [];
+  let w = 1;
+  block.stages.forEach((st, si)=>{
+    for(let j=0;j<alloc[si];j++) weeks.push({ week: w++, prescription: st.prescription });
+  });
+  weeks.push({ week: w, prescription: block.test.prescription, isTest: true });
+  return weeks;
+}
+
+function blockWeeks(block, totalWeeks){
+  return block.type === "skill" ? generateSkillWeeks(block, totalWeeks) : generateWeeks(block, totalWeeks);
+}
+
+// ---------- Block library ----------
+
+const BLOCKS = {
+  frontSquatPause: {
+    key:"frontSquatPause", label:"Pause to Peak", type:"barbell", lift:"frontSquat",
+    name:"Front Squat", testType:"1rm",
+    phases:[
+      {sets:4, reps:6, pctStart:0.65, pctEnd:0.70, share:2, style:"2s pause in the hole, controlled up"},
+      {sets:5, reps:3, pctStart:0.78, pctEnd:0.82, share:2, style:"No pause, drive hard out of the bottom"},
+      {sets:4, reps:2, pctStart:0.88, share:1, style:"Heavy doubles, stop if the elbows drop"},
+    ],
+    test:{sets:1, reps:1, pct:0.95, style:"Build to a max single"},
+  },
+  benchPaused: {
+    key:"benchPaused", label:"Paused Strength to Overload", type:"barbell", lift:"bench",
+    name:"Bench Press", testType:"1rm",
+    phases:[
+      {sets:4, reps:6, pctStart:0.68, pctEnd:0.73, share:2, style:"1s pause on the chest every rep"},
+      {sets:5, reps:4, pctStart:0.78, share:1, style:"2s pause - hardest week for position"},
+      {sets:4, reps:4, pctStart:0.80, share:1, style:"Touch-and-go, use the overload"},
+      {sets:3, reps:2, pctStart:0.88, share:1, style:"Touch-and-go doubles, sharp lockout"},
+    ],
+    test:{sets:1, reps:1, pct:0.95, style:"Build to a max single"},
+  },
+  hipThrustDouble: {
+    key:"hipThrustDouble", label:"Double Progression", type:"barbell", lift:"hipThrust",
+    name:"Hip Thrust", testType:"repMax", testReps:5,
+    phases:[
+      {sets:4, reps:12, pctStart:0.60, pctEnd:0.66, share:2, style:"2s squeeze at lockout every rep"},
+      {sets:4, reps:8, pctStart:0.72, pctEnd:0.76, share:2, style:"Full lockout, ribs down"},
+      {sets:3, reps:6, pctStart:0.82, share:1, style:"Heavy, still full lockout"},
+    ],
+    test:{sets:1, reps:5, pct:0.85, style:"Test: heaviest clean set of 5"},
+  },
+  strictPressVolume: {
+    key:"strictPressVolume", label:"Volume Accumulation", type:"barbell", lift:"ohp",
+    name:"Strict Press", testType:"1rm",
+    phases:[
+      {sets:5, reps:8, pctStart:0.62, share:1, style:"Strict - no leg drive, no layback"},
+      {sets:5, reps:[6,5], pctStart:0.68, pctEnd:0.74, share:2, style:"Strict, brace hard, full lockout"},
+      {sets:4, reps:4, pctStart:0.80, share:1, style:"Strict, reset each rep at the shoulder"},
+      {sets:4, reps:2, pctStart:0.87, share:1, style:"Heavy doubles"},
+    ],
+    test:{sets:1, reps:1, pct:0.95, style:"Build to a max single"},
+  },
+  deadliftCluster: {
+    key:"deadliftCluster", label:"Cluster Loading", type:"barbell", lift:"deadlift",
+    name:"Deadlift", testType:"1rm",
+    phases:[
+      {sets:4, reps:5, pctStart:0.70, share:1, style:"Straight sets, dead stop each rep"},
+      {sets:5, reps:3, pctStart:0.78, share:1, style:"Cluster: 3 reps, 20s rest, repeat"},
+      {sets:[5,6], reps:2, pctStart:0.83, pctEnd:0.86, share:2, style:"Cluster: 2 reps, 30s rest, repeat"},
+      {sets:5, reps:1, pctStart:0.90, share:1, style:"Cluster singles, 30s rest between"},
+    ],
+    test:{sets:1, reps:1, pct:0.95, style:"Build to a max single"},
+  },
+  // Added-load lift: bodyweight is part of what's lifted, so a percentage of
+  // the added-weight max would prescribe nonsense. Load progresses from the
+  // last session instead, and only a genuine test single sets the max.
+  weightedPullup: {
+    key:"weightedPullup", label:"Weighted Progression", type:"barbell", lift:"weightedPullup",
+    name:"Weighted Pull-up", testType:"1rm", loadMode:"progression", prFromTestOnly:true,
+    phases:[
+      {sets:4, reps:6, pctStart:0, share:2, style:"Dead hang to chin over bar, every rep clean"},
+      {sets:4, reps:4, pctStart:0, share:2, style:"Heavier - strict, no kip"},
+      {sets:3, reps:3, pctStart:0, share:1, style:"Heavy triples, full range"},
+    ],
+    test:{sets:1, reps:1, pct:0, style:"Max added weight for one strict rep"},
+  },
+  hspuSkill: {
+    key:"hspuSkill", label:"Gymnastics Skill Progression", type:"skill",
+    name:"Handstand Push-up",
+    stages:[
+      {share:1, prescription:"Wall-facing Handstand Hold 5 x 30-45s + Pike Push-up 4 x 8"},
+      {share:1, prescription:"Wall-facing Handstand Hold 5 x 45-60s + Deficit Pike Push-up 4 x 10"},
+      {share:1, prescription:"Kick-up to Handstand practice 8 attempts + Negative HSPU 4 x 3"},
+      {share:1, prescription:"Strict HSPU singles/doubles with light assistance, 5 sets"},
+      {share:1, prescription:"Strict HSPU 4 x 3-5 unbroken, minimal assistance"},
+    ],
+    test:{prescription:"Test: max unbroken strict Handstand Push-ups"},
+  },
 };
 
-const STAGGER_VERSION = "v2";
-const OFFSET_WEEKS_FROM_NOW = { Tuesday:1, Monday:2, Wednesday:3, Thursday:4, Friday:5 };
+// ---------- Programs ----------
+// A program names its lifts (each running one block) and lays out the week
+// as sessions of those lifts. A lift can appear on several days with a
+// heavy / medium / light role, which is how high-frequency training spreads
+// weekly volume without every session being hard.
+//
+// syncedTesting: every lift runs one shared cycle and tests in the same week
+// (on the program's testDays). Otherwise each lift cycles independently and
+// test weeks are staggered so no two land together.
 
-const ACCESSORY_PROGRAM = {
-  Monday:{ exercises:[
-    {id:"mon-2",name:"Straight Leg Deadlift (RDL)",type:"accessory",sets:4,reps:8,detail:"Moderate-heavy, control the stretch"},
-    {id:"mon-3",name:"Standing Calf Raise",type:"accessory",sets:3,reps:15,detail:"Pause 1s at the top"},
-  ]},
-  Tuesday:{ exercises:[
-    {id:"tue-2",name:"Weighted Pull-up",type:"accessory",sets:4,reps:7,detail:"Added load, full hang each rep"},
-  ]},
-  Wednesday:{ exercises:[
-    {id:"wed-1",name:"Single Leg RDL",type:"accessory",sets:3,reps:10,detail:"Per leg, light-moderate DB"},
-    {id:"wed-2",name:"Bulgarian Split Squat",type:"accessory",sets:3,reps:8,detail:"Per leg"},
-  ]},
-  Thursday:{ exercises:[
-    {id:"thu-2",name:"DB Row",type:"accessory",sets:3,reps:10,detail:"Per side"},
-    {id:"thu-3",name:"Lateral Raise",type:"accessory",sets:3,reps:14,detail:"Light, strict"},
-  ]},
-  Friday:{ exercises:[
-    {id:"fri-2",name:"Heavy Farmers Carry",type:"accessory",sets:4,reps:40,repUnit:"m",detail:"Heavy, tall posture"},
-    {id:"fri-3",name:"Hanging Knee Raise",type:"accessory",sets:3,reps:14,detail:"No swing",bodyweight:true},
-  ]},
-  Saturday:{ staticFocus:"Long Barbell Cycling", exercises:[
-    {id:"sat-1",name:"Barbell Complex Cycling",type:"conditioning",
-     detail:"Cycle without dropping the bar: 5 Deadlifts, 5 Hang Cleans, 5 Front Squats, 5 Push Press. Rest 90s, repeat for 6-8 rounds",
-     cap:"Log rounds / total time"},
-  ]},
-  Sunday:{ staticFocus:"Rest", exercises:[] },
+function acc(name, sets, reps, detail, extra){
+  return { name, sets, reps, detail, type:"accessory", movement:slugify(name), ...(extra||{}) };
+}
+
+const PROGRAMS = {
+  crossfit: {
+    key:"crossfit",
+    name:"CrossFit / Hyrox",
+    blurb:"Six days. One focus lift per weekday on staggered blocks, plus a barbell-cycling conditioning day Saturday.",
+    syncedTesting:false,
+    lifts:{
+      frontSquat:{ block:"frontSquatPause" },
+      bench:{ block:"benchPaused" },
+      hipThrust:{ block:"hipThrustDouble" },
+      ohp:{ block:"strictPressVolume" },
+      deadlift:{ block:"deadliftCluster" },
+    },
+    days:{
+      Monday:    { kind:"strength", sessions:[{lift:"frontSquat", role:"heavy"}], accessories:[
+                    acc("Straight Leg Deadlift (RDL)",4,8,"Moderate-heavy, control the stretch"),
+                    acc("Standing Calf Raise",3,15,"Pause 1s at the top") ]},
+      Tuesday:   { kind:"strength", sessions:[{lift:"bench", role:"heavy"}], accessories:[
+                    acc("Weighted Pull-up",4,7,"Added load, full hang each rep",{noEstimate:true}) ]},
+      Wednesday: { kind:"strength", sessions:[{lift:"hipThrust", role:"heavy"}], accessories:[
+                    acc("Single Leg RDL",3,10,"Per leg, light-moderate DB"),
+                    acc("Bulgarian Split Squat",3,8,"Per leg") ]},
+      Thursday:  { kind:"strength", sessions:[{lift:"ohp", role:"heavy"}], accessories:[
+                    acc("DB Row",3,10,"Per side"),
+                    acc("Lateral Raise",3,14,"Light, strict") ]},
+      Friday:    { kind:"strength", sessions:[{lift:"deadlift", role:"heavy"}], accessories:[
+                    acc("Heavy Farmers Carry",4,40,"Heavy, tall posture",{repUnit:"m"}),
+                    acc("Hanging Knee Raise",3,14,"No swing",{bodyweight:true}) ]},
+      Saturday:  { focus:"Long Barbell Cycling", conditioning:{
+                    name:"Barbell Complex Cycling",
+                    detail:"Cycle without dropping the bar: 5 Deadlifts, 5 Hang Cleans, 5 Front Squats, 5 Push Press. Rest 90s, repeat for 6-8 rounds",
+                    cap:"Log rounds / total time" }},
+      Sunday:    { focus:"Rest" },
+    },
+  },
+
+  powerlifting: {
+    key:"powerlifting",
+    name:"High-Frequency Powerlifting",
+    blurb:"Five days built on the Norwegian frequency research: bench and front squat 4x/week on heavy, medium and light days. Tuesday and Thursday are short, leaving room for a CrossFit session.",
+    syncedTesting:true,
+    // Test week: maxes in meet order on Wednesday, the two lifts that would
+    // be compromised after a deadlift max on Friday.
+    testDays:{
+      Wednesday:["frontSquat","bench","deadlift","ohp"],
+      Friday:["hipThrust","pullup"],
+    },
+    lifts:{
+      frontSquat:{ block:"frontSquatPause" },
+      bench:{ block:"benchPaused" },
+      deadlift:{ block:"deadliftCluster" },
+      ohp:{ block:"strictPressVolume" },
+      hipThrust:{ block:"hipThrustDouble" },
+      pullup:{ block:"weightedPullup" },
+    },
+    days:{
+      Monday:    { kind:"strength", sessions:[
+                    {lift:"frontSquat", role:"heavy"}, {lift:"bench", role:"medium"}, {lift:"ohp", role:"heavy"} ],
+                   accessories:[
+                    acc("Straight Leg Deadlift (RDL)",3,8,"Moderate, feel the hamstring stretch"),
+                    acc("Standing Calf Raise",3,15,"Pause 1s at the bottom stretch"),
+                    acc("DB Curl",3,12,"Controlled, full range") ]},
+      Tuesday:   { kind:"light", sessions:[
+                    {lift:"bench", role:"light"}, {lift:"frontSquat", role:"light"}, {lift:"pullup", role:"medium"} ]},
+      Wednesday: { kind:"strength", sessions:[
+                    {lift:"bench", role:"heavy"}, {lift:"frontSquat", role:"medium"}, {lift:"hipThrust", role:"heavy"} ],
+                   accessories:[
+                    acc("Chest-supported Row",3,10,"Squeeze the shoulder blades"),
+                    acc("Overhead Triceps Extension",3,12,"Deep stretch at the bottom"),
+                    acc("Standing Calf Raise",3,15,"Pause 1s at the bottom stretch") ]},
+      Thursday:  { kind:"light", sessions:[
+                    {lift:"frontSquat", role:"light"} ]},
+      Friday:    { kind:"strength", sessions:[
+                    {lift:"deadlift", role:"heavy"}, {lift:"bench", role:"medium"},
+                    {lift:"ohp", role:"medium"}, {lift:"pullup", role:"heavy"} ],
+                   accessories:[
+                    acc("Chest-supported Row",3,10,"Squeeze the shoulder blades"),
+                    acc("DB Curl",3,12,"Controlled, full range"),
+                    acc("Overhead Triceps Extension",3,12,"Deep stretch at the bottom") ]},
+      Saturday:  { focus:"Rest" },
+      Sunday:    { focus:"Rest" },
+    },
+  },
 };
+
+const DEFAULT_PROGRAM_KEY = "crossfit";
+const MIN_BLOCK_WEEKS = 5, MAX_BLOCK_WEEKS = 10, DEFAULT_BLOCK_WEEKS = 6;
+
+function activeProgram(){ return PROGRAMS[STATE.programKey] || PROGRAMS[DEFAULT_PROGRAM_KEY]; }
+function blockWeekCount(){
+  const n = STATE.blockWeeks || DEFAULT_BLOCK_WEEKS;
+  return Math.min(MAX_BLOCK_WEEKS, Math.max(MIN_BLOCK_WEEKS, n));
+}
+
+// Namespaced, stable ids.
+function exId(programKey, day, slot){ return `${programKey}:${day}:${slot}`; }
+function accId(programKey, day, name){ return `${programKey}:${day}:acc:${slugify(name)}`; }
+
+function programLiftKeys(prog){ return Object.keys(prog.lifts || {}); }
+function liftBlock(prog, slot){
+  const l = prog.lifts && prog.lifts[slot];
+  return l ? BLOCKS[l.block] : null;
+}
+// How many sessions a week a lift appears in this program.
+function liftFrequency(prog, slot){
+  return DAY_ORDER.reduce((n,d)=> n + ((prog.days[d] && prog.days[d].sessions) || []).filter(s=>s.lift===slot).length, 0);
+}
+function firstDayOf(prog, slot){
+  const i = DAY_ORDER.findIndex(d=> ((prog.days[d] && prog.days[d].sessions) || []).some(s=>s.lift===slot));
+  return i < 0 ? 99 : i;
+}
+
+function dayConfig(day){ return activeProgram().days[day] || { focus:"Rest" }; }
+
+function dayConditioning(day){
+  const prog = activeProgram();
+  const cfg = prog.days[day];
+  if(!cfg || !cfg.conditioning) return null;
+  return { ...cfg.conditioning, type:"conditioning", movement:slugify(cfg.conditioning.name),
+           id: exId(prog.key, day, "cond"), programKey: prog.key };
+}
 
 const ACCENT = "#E4572E", GOOD = "#7FB069";
 
@@ -331,7 +516,29 @@ let _uidSeq = 0;
 function uid(){ _uidSeq = (_uidSeq + 1) % 100000; return `${Date.now()}-${_uidSeq}`; }
 
 function round25(n){ return Math.round(n/2.5)*2.5; }
-function epley1RM(w,r){ return (!w||!r) ? 0 : w*(1+r/30); }
+// Epley estimates a max from a multi-rep set. A single IS the max, so it must
+// not be inflated - Epley applied to 1 rep adds ~3.3%.
+function epley1RM(w,r){ if(!w||!r) return 0; return r <= 1 ? w : w*(1+r/30); }
+
+// Earlier builds ran Epley on singles too, recording every true 1RM ~3.3% high.
+// Where a max still equals the inflated figure from a single-rep PR, bring it
+// back to the weight actually lifted. Values set by hand are left alone.
+function correctInflatedSingles(oneRMs, prs){
+  const next = { ...oneRMs };
+  const fixedPrs = prs.map(p => ({ ...p }));
+  let changed = false;
+  const byLift = {};
+  fixedPrs.forEach(p=>{ if(!byLift[p.lift] || new Date(p.date) > new Date(byLift[p.lift].date)) byLift[p.lift] = p; });
+  fixedPrs.forEach(p=>{
+    if(p.reps === 1 && p.weight && Math.round(p.estOneRM) === Math.round(p.weight*(1+1/30))){
+      const current = byLift[p.lift] === p && Math.round(next[p.lift]) === Math.round(p.estOneRM);
+      p.estOneRM = p.weight;
+      changed = true;
+      if(current) next[p.lift] = p.weight;
+    }
+  });
+  return { oneRMs: next, prs: fixedPrs, changed };
+}
 function todayName(){ return DAY_ORDER[(new Date().getDay()+6)%7]; }
 function fmtDate(d){ return new Date(d).toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
 function esc(s){ const d=document.createElement('div'); d.textContent = s==null?"":String(s); return d.innerHTML; }
@@ -360,95 +567,338 @@ function startOfWeekSunday(d){
   return x;
 }
 
-function getSlotWeekInfo(day, slotState){
-  const block = ACTIVE_BLOCKS[day];
+// ---------- Cycle engine ----------
+// Cycle state lives at STATE.slotState[programKey]. Staggered programs keep one
+// entry per lift; synced programs keep a single shared `__cycle` entry.
+// Namespacing per program means switching away and back resumes each lift
+// where it was rather than restarting it.
+
+const MS_WEEK = 7*24*60*60*1000;
+
+function slotsFor(programKey){
+  return (STATE.slotState && STATE.slotState[programKey]) || {};
+}
+
+function cycleStateFor(prog, slot, progSlots){
+  const slots = progSlots || slotsFor(prog.key);
+  return prog.syncedTesting ? slots.__cycle : slots[slot];
+}
+
+// Where a lift (or a synced program's shared cycle) sits right now.
+function cyclePosition(prog, slot, progSlots){
+  const total = blockWeekCount();
+  const st = cycleStateFor(prog, slot, progSlots);
+  if(!st) return { weekInBlock:1, totalWeeks:total, complete:false, testWeek:false };
+  const thisWeek = startOfWeekSunday(new Date());
+  const startWeek = startOfWeekSunday(new Date(st.startDate));
+  if(startWeek > thisWeek){
+    // Next cycle is already scheduled. If that's because a test was logged
+    // this week, the rest of the week is still that test week - so the logged
+    // test stays visible and editable. Otherwise the lift simply hasn't
+    // started yet (a staggered seed pushed it back) and shows week 1.
+    if(st.testedWeek && new Date(st.testedWeek).getTime() === thisWeek.getTime()){
+      return { weekInBlock: total, totalWeeks: total, complete:false, testWeek:true, justTested:true };
+    }
+    return { weekInBlock:1, totalWeeks:total, complete:false, testWeek:false };
+  }
+  const weekNumber = Math.round((thisWeek - startWeek) / MS_WEEK) + 1;
+  const weekInBlock = Math.min(weekNumber, total);
+  return { weekInBlock, totalWeeks: total, complete: weekNumber > total, testWeek: weekInBlock === total };
+}
+
+// The Sunday-anchored week a lift's final test week falls in.
+function projectedTestWeek(startDateISO, totalWeeks){
+  const n = (totalWeeks || blockWeekCount()) - 1;
+  return new Date(startOfWeekSunday(new Date(startDateISO)).getTime() + n*MS_WEEK);
+}
+
+const ROLE_LABEL = { heavy:"Heavy", medium:"Medium", light:"Light", test:"Test" };
+
+// Build one session's exercise from the lift's block and a role. Medium runs
+// ~90% of the heavy load with one fewer set; light runs ~80% for 2-3 paused
+// sets. Only the heavy session is meant to be genuinely hard.
+function sessionExercise(prog, day, slot, role, pos){
+  const block = liftBlock(prog, slot);
   if(!block) return null;
-  const state = slotState[day];
-  const start = state ? state.startDate : new Date().toISOString();
-  const msPerWeek = 7*24*60*60*1000;
-  const weeksElapsed = Math.round((startOfWeekSunday(new Date()) - startOfWeekSunday(new Date(start))) / msPerWeek);
-  const weekNumber = Math.max(1, weeksElapsed + 1);
-  return { block, weekInBlock: Math.min(weekNumber,6), complete: weekNumber > 6 };
+  const total = pos.totalWeeks;
+  const weeks = blockWeeks(block, total);
+  const base = {
+    id: role === "test" ? exId(prog.key, day, slot) + ":test" : exId(prog.key, day, slot),
+    slot, programKey: prog.key, role,
+    name: block.name, movement: slugify(block.name),
+    blockLabel: block.label, weekInBlock: pos.weekInBlock, totalWeeks: total, complete: !!pos.complete,
+    testType: block.testType || "1rm", testReps: block.testReps || null,
+    loadMode: block.loadMode || "percent", prFromTestOnly: !!block.prFromTestOnly,
+  };
+
+  // In a test week, sessions that aren't the test itself run off the
+  // previous week's prescription rather than the test row.
+  const workingWeek = pos.testWeek ? Math.max(1, total - 1) : pos.weekInBlock;
+
+  if(block.type === "skill"){
+    const row = role === "test" ? weeks[weeks.length-1] : (weeks.find(w=>w.week===workingWeek) || weeks[0]);
+    return { ...base, type:"skill", prescription: row.prescription, isTest: role === "test" };
+  }
+
+  if(role === "test"){
+    const t = weeks[weeks.length-1];
+    return { ...base, type:"strength", lift:block.lift, sets:t.sets, reps:t.reps, pct:t.pct, style:t.style, isTest:true };
+  }
+
+  const row = weeks.find(w=>w.week===workingWeek) || weeks[0];
+  const factor = role === "medium" ? 0.9 : role === "light" ? 0.8 : 1;
+  const sets = role === "heavy" ? row.sets
+             : role === "medium" ? Math.max(2, row.sets - 1)
+             : Math.max(2, Math.min(3, row.sets - 2));
+  return {
+    ...base, type:"strength", lift:block.lift, sets, reps:row.reps,
+    pct: Math.round(row.pct * factor * 1000) / 1000,
+    style: role === "light" ? "Light - paused reps, crisp technique, stay 3-4 reps from failure" : row.style,
+    isTest:false,
+  };
 }
 
-// The Sunday-anchored week in which a slot's week-6 test falls.
-function projectedTestWeek(startDateISO){
-  const msPerWeek = 7*24*60*60*1000;
-  return new Date(startOfWeekSunday(new Date(startDateISO)).getTime() + 5*msPerWeek);
+// Test-week layout for a synced program: test days carry the maxes, every
+// other session drops to light, and a lift trained only once a week skips its
+// usual session because its test replaces it.
+function isSyncedTestDay(prog, day, pos){
+  return prog.syncedTesting && pos.testWeek && !!(prog.testDays||{})[day];
 }
 
-// A block restarts from the week its test was actually done - not from when
-// the calendar said it was due. Miss a test week and do it later, and the new
-// cycle simply begins after the real test, keeping each lift on its own
-// rhythm instead of silently drifting into another lift's test week.
-function realignSlotsAfterTests(slotState, logs){
-  const next = { ...slotState };
+function buildDaySessions(day, progArg){
+  const prog = progArg || activeProgram();
+  const cfg = prog.days[day];
+  if(!cfg) return [];
+  const slots = slotsFor(prog.key);
+
+  if(prog.syncedTesting){
+    const pos = cyclePosition(prog, null, slots);
+    if(pos.testWeek){
+      const tests = (prog.testDays||{})[day];
+      if(tests) return tests.map(slot => sessionExercise(prog, day, slot, "test", pos)).filter(Boolean);
+      return (cfg.sessions||[])
+        .filter(s => liftFrequency(prog, s.lift) > 1)
+        .map(s => sessionExercise(prog, day, s.lift, "light", pos)).filter(Boolean);
+    }
+    return (cfg.sessions||[]).map(s => sessionExercise(prog, day, s.lift, s.role, pos)).filter(Boolean);
+  }
+
+  // Staggered: each lift is on its own cycle. In its test week the heavy
+  // session becomes the test and anything else goes light.
+  return (cfg.sessions||[]).map(s=>{
+    const pos = cyclePosition(prog, s.lift, slots);
+    const role = pos.testWeek ? (s.role === "heavy" ? "test" : "light") : s.role;
+    return sessionExercise(prog, day, s.lift, role, pos);
+  }).filter(Boolean);
+}
+
+// Accessories are skipped on a synced program's test days.
+function dayAccessories(day, progArg){
+  const prog = progArg || activeProgram();
+  const cfg = prog.days[day];
+  if(!cfg || !cfg.accessories) return [];
+  if(prog.syncedTesting && isSyncedTestDay(prog, day, cyclePosition(prog, null))) return [];
+  return cfg.accessories.map(a => ({ ...a, id: accId(prog.key, day, a.name), programKey: prog.key }));
+}
+
+// ---------- Realignment after tests ----------
+// A cycle restarts from the week its test was actually done, not from when the
+// calendar said it was due. The previous start is kept so deleting the test
+// log that triggered a restart can put it back exactly.
+
+function realignSlotsAfterTests(allSlotState, logs, programKey){
+  const prog = programKey ? PROGRAMS[programKey] : activeProgram();
+  const slots = { ...(allSlotState[prog.key] || {}) };
   let changed = false;
 
-  Object.keys(ACTIVE_BLOCKS).forEach(day=>{
-    const block = ACTIVE_BLOCKS[day];
-    const state = next[day];
-    if(!state) return;
-    const exId = `${day}-primary-${block.key}`;
-    const testLog = logs
-      .filter(l => l.exerciseId === exId && l.isTest)
-      .sort((a,b)=> new Date(b.date) - new Date(a.date))[0];
-    if(!testLog) return;
-    if(state.lastTestLogId === testLog.id) return;   // already accounted for
+  const testLogs = (slotFilter) => logs
+    .filter(l => l.isTest && l.programKey === prog.key && (!slotFilter || l.slot === slotFilter))
+    .sort((a,b)=> new Date(b.date) - new Date(a.date));
 
-    // New cycle begins the week after the test was actually performed.
-    const msPerWeek = 7*24*60*60*1000;
-    let newStart = new Date(startOfWeekSunday(new Date(testLog.date)).getTime() + msPerWeek);
+  const schedule = (st, testLog) => {
+    const testedWeek = startOfWeekSunday(new Date(testLog.date));
+    return {
+      ...st,
+      startDate: new Date(testedWeek.getTime() + MS_WEEK).toISOString(),
+      testedWeek: testedWeek.toISOString(),
+      lastTestLogId: testLog.id,
+      prevStartDate: st.startDate,
+      prevTestLogId: st.lastTestLogId || null,
+      prevTestedWeek: st.testedWeek || null,
+    };
+  };
 
-    // Never let two lifts land their test week together.
-    newStart = avoidTestCollision(day, newStart, next);
+  if(prog.syncedTesting){
+    const st = slots.__cycle;
+    const latest = testLogs(null)[0];
+    // Only a test from the current cycle can restart it - so logging the
+    // Friday tests after Wednesday's doesn't shift the cycle a second time.
+    if(st && latest && st.lastTestLogId !== latest.id
+       && new Date(latest.date) >= startOfWeekSunday(new Date(st.startDate))){
+      slots.__cycle = schedule(st, latest);
+      changed = true;
+    }
+  } else {
+    programLiftKeys(prog).forEach(slot=>{
+      const st = slots[slot];
+      if(!st) return;
+      const latest = testLogs(slot)[0];
+      if(!latest || st.lastTestLogId === latest.id) return;
+      if(new Date(latest.date) < startOfWeekSunday(new Date(st.startDate))) return;
+      const next = schedule(st, latest);
+      next.startDate = avoidTestCollision(slot, new Date(next.startDate), slots, prog).toISOString();
+      slots[slot] = next;
+      changed = true;
+    });
+  }
 
-    next[day] = { ...state, startDate: newStart.toISOString(), lastTestLogId: testLog.id };
-    changed = true;
-  });
-
-  return { slotState: next, changed };
+  return { slotState: { ...allSlotState, [prog.key]: slots }, changed };
 }
 
-// Push a proposed start date forward a week at a time until its test week is
-// free. Capped so a crowded schedule can never loop forever.
-function avoidTestCollision(day, proposedStart, slotState){
-  const msPerWeek = 7*24*60*60*1000;
+// Push a start date forward a week at a time until its test week is free.
+// Staggered programs only; capped so a crowded schedule can't loop forever.
+function avoidTestCollision(slot, proposedStart, progSlots, prog){
+  const total = blockWeekCount();
   let start = new Date(proposedStart);
-  for(let attempt=0; attempt<6; attempt++){
-    const mine = projectedTestWeek(start.toISOString()).getTime();
-    const clash = Object.keys(ACTIVE_BLOCKS).some(other=>{
-      if(other === day) return false;
-      const os = slotState[other];
+  for(let attempt=0; attempt<MAX_BLOCK_WEEKS; attempt++){
+    const mine = projectedTestWeek(start.toISOString(), total).getTime();
+    const clash = programLiftKeys(prog).some(other=>{
+      if(other === slot) return false;
+      const os = progSlots[other];
       if(!os) return false;
-      return projectedTestWeek(os.startDate).getTime() === mine;
+      return projectedTestWeek(os.startDate, total).getTime() === mine;
     });
     if(!clash) return start;
-    start = new Date(start.getTime() + msPerWeek);
+    start = new Date(start.getTime() + MS_WEEK);
   }
   return start;
 }
 
-function buildPrimaryExercise(day, slotState){
-  const info = getSlotWeekInfo(day, slotState);
-  if(!info) return null;
-  const { block, weekInBlock, complete } = info;
-  const wk = block.weeks.find(w=>w.week===weekInBlock);
-  const id = `${day}-primary-${block.key}`;
-  const base = { id, name:block.name, blockLabel:block.label, weekInBlock, complete, isTest: !!wk.isTest,
-                 style: wk.style || null, testType: block.testType || "1rm", testReps: block.testReps || null };
-  if(block.type==="barbell") return { ...base, type:"strength", lift:block.lift, sets:wk.sets, reps:wk.reps, pct:wk.pct };
-  return { ...base, type:"skill", prescription:wk.prescription };
+// ---------- Seeding ----------
+
+function seedProgramSlots(programKey){
+  const prog = PROGRAMS[programKey];
+  if(!prog) return false;
+  const existing = { ...(STATE.slotState[programKey] || {}) };
+  const total = blockWeekCount();
+  const thisWeek = startOfWeekSunday(new Date());
+  let changed = false;
+
+  if(prog.syncedTesting){
+    if(!existing.__cycle){
+      existing.__cycle = { startDate: thisWeek.toISOString(), lastTestLogId: null };
+      changed = true;
+    }
+  } else {
+    // Fresh lifts start one week apart (the first at week 1), so their test
+    // weeks are staggered from the outset; collision avoidance tidies up any
+    // overlap when a short block leaves more lifts than weeks.
+    const order = programLiftKeys(prog).sort((a,b)=> firstDayOf(prog,a) - firstDayOf(prog,b));
+    order.forEach((slot, i)=>{
+      const want = prog.lifts[slot].block;
+      const st = existing[slot];
+      if(st && st.blockKey === want) return;
+      let start = new Date(thisWeek.getTime() - Math.min(i, total - 2) * MS_WEEK);
+      start = avoidTestCollision(slot, start, existing, prog);
+      existing[slot] = { blockKey: want, startDate: start.toISOString(), lastTestLogId: null };
+      changed = true;
+    });
+  }
+
+  // Drop entries the program no longer uses.
+  Object.keys(existing).forEach(k=>{
+    if(k === "__cycle"){ if(!prog.syncedTesting){ delete existing[k]; changed = true; } return; }
+    if(!prog.lifts[k]){ delete existing[k]; changed = true; }
+  });
+
+  if(changed){
+    STATE.slotState = { ...STATE.slotState, [programKey]: existing };
+    saveKey("slotState", STATE.slotState);
+  }
+  return changed;
+}
+
+// ---------- Legacy migration ----------
+// The live app stored block state per DAY at the top level of slotState and
+// used ids like "Monday-primary-..." and "mon-2". Without this, upgrading
+// would find no state under the new layout and reset every block in progress.
+
+const LEGACY_DAY_SLOT = { Monday:"frontSquat", Tuesday:"bench", Wednesday:"hipThrust", Thursday:"ohp", Friday:"deadlift" };
+const LEGACY_ACC = {
+  "mon-2":["Monday","Straight Leg Deadlift (RDL)"], "mon-3":["Monday","Standing Calf Raise"],
+  "tue-2":["Tuesday","Weighted Pull-up"],
+  "wed-1":["Wednesday","Single Leg RDL"], "wed-2":["Wednesday","Bulgarian Split Squat"],
+  "thu-2":["Thursday","DB Row"], "thu-3":["Thursday","Lateral Raise"],
+  "fri-2":["Friday","Heavy Farmers Carry"], "fri-3":["Friday","Hanging Knee Raise"],
+};
+
+function migrateLegacy(slotState, logs){
+  const ss = { ...(slotState || {}) };
+  let slotsChanged = false, logsChanged = false;
+
+  const legacyDays = Object.keys(ss).filter(k => DAY_ORDER.includes(k));
+  if(legacyDays.length){
+    const cf = { ...(ss.crossfit || {}) };
+    legacyDays.forEach(day=>{
+      const slot = LEGACY_DAY_SLOT[day];
+      const old = ss[day];
+      if(slot && old && old.startDate && !cf[slot]){
+        cf[slot] = { blockKey: PROGRAMS.crossfit.lifts[slot].block,
+                     startDate: old.startDate, lastTestLogId: old.lastTestLogId || null };
+      }
+      delete ss[day];
+    });
+    ss.crossfit = cf;
+    slotsChanged = true;
+  }
+
+  const out = (logs || []).map(l=>{
+    let n = l;
+    const m = /^(Monday|Tuesday|Wednesday|Thursday|Friday)-primary-/.exec(l.exerciseId || "");
+    if(m && LEGACY_DAY_SLOT[m[1]]){
+      const slot = LEGACY_DAY_SLOT[m[1]];
+      const id = exId("crossfit", m[1], slot) + (l.isTest ? ":test" : "");
+      n = { ...n, exerciseId: id, programKey:"crossfit", slot };
+    } else if(LEGACY_ACC[l.exerciseId]){
+      const [d, name] = LEGACY_ACC[l.exerciseId];
+      n = { ...n, exerciseId: accId("crossfit", d, name), programKey:"crossfit" };
+    } else if(l.exerciseId === "sat-1"){
+      n = { ...n, exerciseId: exId("crossfit","Saturday","cond"), programKey:"crossfit" };
+    }
+    if(!n.movement) n = { ...n, movement: slugify(n.exerciseName || n.title || "") };
+    if(n !== l) logsChanged = true;
+    return n;
+  });
+
+  return { slotState: ss, logs: out, slotsChanged, logsChanged };
 }
 
 function recommendedWeight(ex, oneRMs, logs){
   const lift = ex.lift;
   const increment = LIFT_INCREMENT[lift] || 2.5;
+
+  // Added-load lifts progress from the last session: add a step when every
+  // rep was hit (or the rep target dropped), otherwise repeat the load.
+  if(ex.loadMode === "progression"){
+    if(ex.isTest){
+      const m = oneRMs[lift] || 0;
+      return m ? round25(m + increment) : null;
+    }
+    const prior = logs.filter(l => l.lift === lift && l.type === "strength" && !l.isTest)
+      .sort((a,b)=> new Date(b.date) - new Date(a.date))[0];
+    if(!prior || !prior.weight) return null;
+    const step = (prior.hitTarget && prior.reps === ex.reps) || prior.reps > ex.reps ? increment : 0;
+    const w = round25(prior.weight + step);
+    return ex.role === "light" ? round25(w * 0.8) : w;
+  }
+
   if(ex.isTest && ex.testType !== "repMax") return round25((oneRMs[lift]||0)+increment);
   const base = round25((oneRMs[lift]||0)*ex.pct);
   const prior = logs.filter(l=>l.exerciseId===ex.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const last = prior[0];
   if(!last) return base;
+  // Carry a load forward only when this exact session's prescription is
+  // unchanged; when the block moves on, the percentage drives the load.
   if(last.reps === ex.reps && last.sets === ex.sets){
     return last.hitTarget ? round25(last.weight+increment) : round25(last.weight);
   }
@@ -554,7 +1004,9 @@ const STATE = {
   logs: [],
   journal: [],
   prs: [],
-  slotState: {},
+  programKey: DEFAULT_PROGRAM_KEY,
+  blockWeeks: DEFAULT_BLOCK_WEEKS,
+  slotState: {},        // { programKey: { day: {...} } } - namespaced per program
   dayWods: {},          // { Monday: {..wod..}, ... } - cleared each Sunday 23:00
   setTicks: {},         // { exerciseId: [bool,...] } - working state during a session
   loaded: false,
@@ -568,7 +1020,7 @@ const STATE = {
 };
 
 async function init(){
-  const [rms,l,j,p,storedSlotState,dayWods,storedTicks] = await Promise.all([
+  const [rms,l,j,p,storedSlotState,dayWods,storedTicks,settings] = await Promise.all([
     loadKey("oneRMs", DEFAULT_ONE_RMS),
     loadKey("logs", []),
     loadKey("journal", []),
@@ -576,9 +1028,23 @@ async function init(){
     loadKey("slotState", {}),
     loadKey("dayWods", {}),
     loadKey("setTicks", {}),
+    loadKey("settings", {}),
   ]);
   STATE.oneRMs = { ...DEFAULT_ONE_RMS, ...rms };
-  STATE.logs = l; STATE.journal = j; STATE.prs = p;
+  // Carry the live app's per-day block state and old exercise ids across to
+  // the per-program layout, so nothing already in progress gets reset.
+  const mig = migrateLegacy(storedSlotState, l);
+  STATE.logs = mig.logs; STATE.journal = j; STATE.prs = p;
+  const infl = correctInflatedSingles(STATE.oneRMs, STATE.prs);
+  if(infl.changed){
+    STATE.oneRMs = infl.oneRMs; STATE.prs = infl.prs;
+    saveKey("oneRMs", STATE.oneRMs); saveKey("prs", STATE.prs);
+  }
+  if(mig.logsChanged) saveKey("logs", STATE.logs);
+  if(mig.slotsChanged) saveKey("slotState", mig.slotState);
+
+  STATE.programKey = (settings && PROGRAMS[settings.programKey]) ? settings.programKey : DEFAULT_PROGRAM_KEY;
+  STATE.blockWeeks = (settings && settings.blockWeeks) ? settings.blockWeeks : DEFAULT_BLOCK_WEEKS;
 
   // Drop any WOD saved before the current training week began.
   const boundary = weekBoundary();
@@ -597,28 +1063,12 @@ async function init(){
     saveKey("setTicks", { weekStart: boundary.toISOString(), ticks: {} });
   }
 
-  const nextSlotState = { ...storedSlotState };
-  let changed = false;
-  const msPerWeek = 7*24*60*60*1000;
-  Object.keys(ACTIVE_BLOCKS).forEach(day=>{
-    const currentKey = ACTIVE_BLOCKS[day].key;
-    const stored = nextSlotState[day];
-    const blockChanged = !stored || stored.blockKey !== currentKey;
-    const staggerBump = !stored || stored.staggerVersion !== STAGGER_VERSION;
-    if(!blockChanged && !staggerBump) return;
-    let startDate;
-    if(staggerBump && OFFSET_WEEKS_FROM_NOW[day] !== undefined){
-      startDate = new Date(Date.now() - (6 - OFFSET_WEEKS_FROM_NOW[day])*msPerWeek).toISOString();
-    } else {
-      startDate = new Date().toISOString();
-    }
-    nextSlotState[day] = { blockKey: currentKey, startDate, staggerVersion: STAGGER_VERSION };
-    changed = true;
-  });
-  if(changed) saveKey("slotState", nextSlotState);
+  STATE.slotState = mig.slotState || {};
+  seedProgramSlots(STATE.programKey);
+
   // Catch up on any test already completed - including one done late, which
   // is what would otherwise leave two lifts testing in the same week.
-  const realigned = realignSlotsAfterTests(nextSlotState, STATE.logs);
+  const realigned = realignSlotsAfterTests(STATE.slotState, STATE.logs);
   if(realigned.changed) saveKey("slotState", realigned.slotState);
   STATE.slotState = realigned.slotState;
   STATE.loaded = true;
@@ -661,12 +1111,14 @@ function logStrength(ex, setDetails){
   const logId = uid();
   const entry = {
     id: logId, date:new Date().toISOString(), day:STATE.selectedDay, type:"strength",
-    exerciseId:ex.id, exerciseName:ex.name, lift:ex.lift,
+    exerciseId:ex.id, exerciseName:ex.name, lift:ex.lift, movement: ex.movement || slugify(ex.name),
+    programKey: ex.programKey || null, slot: ex.slot || null, role: ex.role || null,
     setDetails: valid, sets: valid.length, reps: ex.reps, weight: topWeight, hitTarget,
     isTest: ex.isTest||false,
   };
   persistLogs([entry, ...STATE.logs]);
-  applyPrIfBeaten(logId, ex.lift, topWeight, topSet.reps, entry.date);
+  // Added-load lifts only take a new max from a genuine test single.
+  if(!ex.prFromTestOnly || ex.isTest) applyPrIfBeaten(logId, ex.lift, topWeight, topSet.reps, entry.date);
   if(ex.isTest) refreshSlotAlignment();
   return true;
 }
@@ -680,15 +1132,36 @@ function refreshSlotAlignment(){
 // Raise the 1RM if this set beats it, recording both which log produced the
 // PR and what the max was beforehand, so the change can be undone exactly if
 // that log is later edited or deleted.
-function applyPrIfBeaten(logId, lift, weight, reps, dateISO){
+function applyPrIfBeaten(logId, lift, weight, reps, dateISO, opts){
   if(!lift || !weight) return;
-  const est = epley1RM(weight, reps);
+  // Nearest 0.5kg - whole-kilo rounding turned a 102.5kg single into 103.
+  const est = Math.round(epley1RM(weight, reps) * 2) / 2;
   const prev = STATE.oneRMs[lift] || 0;
   if(est > prev){
-    persistOneRMs({ ...STATE.oneRMs, [lift]: Math.round(est) });
+    persistOneRMs({ ...STATE.oneRMs, [lift]: est });
     persistPrs([{ id:`${logId}-pr`, logId, date:dateISO, lift,
-      estOneRM:Math.round(est), prevOneRM: prev, weight, reps }, ...STATE.prs]);
+      estOneRM:est, prevOneRM: prev, weight, reps,
+      estimated: !!(opts && opts.estimated), label: (opts && opts.label) || null }, ...STATE.prs]);
   }
+}
+
+// Accessory movements aren't in the curated lift list, so build their labels
+// from whatever has actually been recorded.
+function accessoryMaxKeys(){
+  const curated = new Set(Object.keys(LIFT_LABELS));
+  const keys = new Set();
+  STATE.prs.forEach(p=>{ if(p.estimated && !curated.has(p.lift)) keys.add(p.lift); });
+  Object.keys(STATE.oneRMs).forEach(k=>{
+    if(!curated.has(k) && STATE.oneRMs[k] > 0) keys.add(k);
+  });
+  return Array.from(keys);
+}
+function accessoryLabel(key){
+  const pr = STATE.prs.find(p=>p.lift===key && p.label);
+  if(pr) return pr.label;
+  const log = STATE.logs.find(l=>l.movement===key);
+  if(log) return log.exerciseName;
+  return key.replace(/-/g," ").replace(/\b\w/g, c=>c.toUpperCase());
 }
 
 // Strip any PR created by this log and restore the max that preceded it -
@@ -700,8 +1173,8 @@ function revertPrsForLog(logId){
   persistPrs(STATE.prs.filter(p => p.logId !== logId));
   const nextRMs = { ...STATE.oneRMs };
   doomed.forEach(d=>{
-    if(Math.round(nextRMs[d.lift]) === Math.round(d.estOneRM)){
-      nextRMs[d.lift] = Math.round(d.prevOneRM ?? nextRMs[d.lift]);
+    if(Math.abs((nextRMs[d.lift]||0) - d.estOneRM) < 0.51){
+      nextRMs[d.lift] = d.prevOneRM ?? nextRMs[d.lift];
     }
   });
   persistOneRMs(nextRMs);
@@ -725,7 +1198,7 @@ function updateSetLog(logId, ex, setDetails){
     editedAt: new Date().toISOString(),
   });
   persistLogs(next);
-  if(isStrength) applyPrIfBeaten(logId, ex.lift, topWeight, topSet.reps, new Date().toISOString());
+  if(isStrength && (!ex.prFromTestOnly || ex.isTest)) applyPrIfBeaten(logId, ex.lift, topWeight, topSet.reps, new Date().toISOString());
   return true;
 }
 
@@ -739,18 +1212,28 @@ function deleteLog(logId){
   revertPrsForLog(logId);
   const entry = STATE.logs.find(l => l.id === logId);
   persistLogs(STATE.logs.filter(l => l.id !== logId));
-  // If this test log had advanced a block, release that link so the slot can
-  // re-derive from whatever test (if any) now stands as the latest.
+  // If this test restarted a cycle, put the cycle back exactly where it was,
+  // then let realignment pick up any other test still standing (e.g. deleting
+  // Wednesday's max while Friday's remains).
   if(entry && entry.isTest){
-    const next = { ...STATE.slotState };
+    const all = { ...STATE.slotState };
     let touched = false;
-    Object.keys(next).forEach(day=>{
-      if(next[day] && next[day].lastTestLogId === logId){
-        next[day] = { ...next[day], lastTestLogId: null };
-        touched = true;
-      }
+    Object.keys(all).forEach(pk=>{
+      const slots = { ...(all[pk] || {}) };
+      Object.keys(slots).forEach(k=>{
+        const st = slots[k];
+        if(st && st.lastTestLogId === logId){
+          slots[k] = { ...st,
+            startDate: st.prevStartDate || st.startDate,
+            lastTestLogId: st.prevTestLogId || null,
+            testedWeek: st.prevTestedWeek || null,
+            prevStartDate: null, prevTestLogId: null, prevTestedWeek: null };
+          touched = true;
+        }
+      });
+      all[pk] = slots;
     });
-    if(touched){ STATE.slotState = next; saveKey("slotState", next); }
+    if(touched){ STATE.slotState = all; saveKey("slotState", all); }
     refreshSlotAlignment();
   }
 }
@@ -758,13 +1241,25 @@ function deleteLog(logId){
 function logAccessory(ex, setDetails){
   const valid = setDetails.filter(s => s.reps > 0);
   if(!valid.length) return false;
+  const topWeight = Math.max(...valid.map(s=>s.weight||0));
+  const topSet = valid.find(s => (s.weight||0) === topWeight) || valid[0];
+  const logId = uid();
   persistLogs([{
-    id:uid(), date:new Date().toISOString(), day:STATE.selectedDay,
-    exerciseId:ex.id, exerciseName:ex.name, type:"accessory",
+    id:logId, date:new Date().toISOString(), day:STATE.selectedDay,
+    exerciseId:ex.id, exerciseName:ex.name, movement: ex.movement || slugify(ex.name),
+    programKey: ex.programKey || null,
+    type:"accessory",
     setDetails: valid, sets: valid.length, reps: ex.reps,
-    weight: Math.max(...valid.map(s=>s.weight||0)) || null,
+    weight: topWeight || null,
     result: setsSummary(valid),
   }, ...STATE.logs]);
+  // Accessories carry an estimated max too. It is never used to prescribe
+  // loads - high-rep estimates are too unreliable for that - but it lets
+  // progress on assistance work be tracked alongside the main lifts.
+  if(topWeight > 0 && !ex.noEstimate){
+    const key = ex.movement || slugify(ex.name);
+    applyPrIfBeaten(logId, key, topWeight, topSet.reps, new Date().toISOString(), { estimated:true, label: ex.name });
+  }
   return true;
 }
 
@@ -848,7 +1343,7 @@ function tabBtn(id,icon,label){
 function renderMain(){
   const el = document.getElementById('main-content');
   if(STATE.tab==="today"){ el.innerHTML = renderToday(); attachTodayHandlers(); }
-  else if(STATE.tab==="program"){ el.innerHTML = renderProgram(); }
+  else if(STATE.tab==="program"){ el.innerHTML = renderProgram(); attachProgramHandlers(); }
   else if(STATE.tab==="lifts"){ el.innerHTML = renderLifts(); attachLiftsHandlers(); }
   else if(STATE.tab==="log"){ el.innerHTML = renderLog(); attachLogHandlers(); }
 }
@@ -857,12 +1352,25 @@ function renderMain(){
 
 function renderToday(){
   const day = STATE.selectedDay;
-  const dayData = ACCESSORY_PROGRAM[day];
-  const primary = buildPrimaryExercise(day, STATE.slotState);
-  const strengthEx = primary ? [primary, ...dayData.exercises] : dayData.exercises;
-  const subtitle = primary
-    ? `${esc(primary.name)} - Week ${primary.weekInBlock}/6 - ${esc(primary.blockLabel)}`
-    : esc(dayData.staticFocus || "");
+  const prog = activeProgram();
+  const cfg = dayConfig(day);
+  const sessions = buildDaySessions(day);
+  const cond = dayConditioning(day);
+  const strengthEx = [ ...sessions, ...dayAccessories(day), ...(cond ? [cond] : []) ];
+  const syncedPos = prog.syncedTesting ? cyclePosition(prog, null) : null;
+  const isTestDay = sessions.some(s => s.role === "test");
+
+  let subtitle;
+  if(!sessions.length){
+    subtitle = esc(cfg.focus || "Rest");
+  } else if(sessions.length === 1 && !prog.syncedTesting){
+    const p = sessions[0];
+    subtitle = `${esc(p.name)} - Week ${p.weekInBlock}/${p.totalWeeks} - ${esc(p.blockLabel)}`;
+  } else {
+    const p = sessions[0];
+    const kind = isTestDay ? "Test day" : (syncedPos && syncedPos.testWeek) ? "Light week" : cfg.kind === "light" ? "Light day" : "Strength day";
+    subtitle = `${kind} - Week ${p.weekInBlock}/${p.totalWeeks}`;
+  }
 
   let html = `<div class="pill-row">${DAY_ORDER.map(d=>
     `<button class="pill ${d===day?'active':''}" data-day="${d}">${d.slice(0,3)}</button>`
@@ -872,12 +1380,29 @@ function renderToday(){
     <div class="disp" style="font-size:24px;text-transform:uppercase;font-weight:600">${day}</div>
     <div class="small accent">${subtitle}</div></div>`;
 
-  if(primary && primary.complete){
-    html += `<div class="card warn" style="display:flex;gap:8px;align-items:flex-start">
-      ${iconSpan('refresh',15,ACCENT)}
-      <div class="small"><span class="accent" style="font-weight:600">Test week overdue.</span>
-      Log the ${primary.isTest && primary.testType==="repMax" ? `${primary.testReps||5}RM` : "1RM"} whenever you get to it -
-      ${esc(primary.name)} then restarts at week 1 off your new max. Tell Claude in chat only if you want a different lift.</div></div>`;
+  // Synced test week: say plainly what's happening and when the maxes are.
+  if(syncedPos && syncedPos.testWeek){
+    const plan = Object.entries(prog.testDays||{}).map(([d, lifts])=>
+      `${d}: ${lifts.map(k=>{ const b = liftBlock(prog,k); return b ? b.name + (b.testType==="repMax" ? ` ${b.testReps}RM` : "") : k; }).join(", ")}`
+    ).join(" &middot; ");
+    html += `<div class="card test" style="display:flex;gap:8px;align-items:flex-start">
+      ${iconSpan('trend',15,GOOD)}
+      <div class="small"><span class="good" style="font-weight:600">${syncedPos.complete ? "Test week overdue." : "Test week."}</span>
+      Everything else is light. ${plan}.
+      The next cycle starts the week after you test.</div></div>`;
+  } else {
+    const overdue = sessions.find(s => s.complete);
+    if(overdue){
+      html += `<div class="card warn" style="display:flex;gap:8px;align-items:flex-start">
+        ${iconSpan('refresh',15,ACCENT)}
+        <div class="small"><span class="accent" style="font-weight:600">Test week overdue.</span>
+        Log the ${overdue.testType==="repMax" ? `${overdue.testReps||5}RM` : "1RM"} whenever you get to it -
+        ${esc(overdue.name)} then restarts at week 1 off your new max.</div></div>`;
+    }
+  }
+
+  if(cfg.kind === "light" && !isTestDay && !(syncedPos && syncedPos.testWeek)){
+    html += `<div class="xsmall muted" style="margin:-6px 0 12px">Short session - room for a CrossFit workout after. Log it in the WOD section below.</div>`;
   }
 
   // ----- Strength section -----
@@ -927,7 +1452,7 @@ function blockBadge(ex){
   if(!ex.blockLabel) return '';
   const color = ex.isTest ? GOOD : '#8B8F96';
   return `<div class="xsmall" style="text-transform:uppercase;letter-spacing:0.03em;color:${color};margin-top:4px">
-    Week ${ex.weekInBlock}/6 - ${esc(ex.blockLabel)}${ex.isTest?' - Test Day':''}</div>`;
+    Week ${ex.weekInBlock}/${ex.totalWeeks || blockWeekCount()} - ${esc(ex.blockLabel)}${ex.isTest?' - Test Day':''}</div>`;
 }
 
 // Numeric input tuned for phones: decimal keypad, no spinner, no leading zero.
@@ -960,30 +1485,62 @@ function setRows(ex, prefill, showWeight){
   return rows;
 }
 
-function lastEntryFor(exId){
-  return STATE.logs.filter(l=>l.exerciseId===exId).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+// "Last time" matches on the MOVEMENT, so switching program keeps showing what
+// you last did on that lift. "Logged this week" and edit/delete stay keyed to
+// the exercise id, so they only ever act on this program's own entry.
+// "Last time" prefers this exact session (so a light day compares with the
+// last light day, not Monday's heavy sets), then falls back to the same
+// MOVEMENT anywhere - which is what carries history across programs.
+function lastEntryFor(ex){
+  const id = typeof ex === "string" ? ex : ex.id;
+  const mv = typeof ex === "string" ? null : ex.movement;
+  const byDate = (a,b)=> new Date(b.date) - new Date(a.date);
+  const same = STATE.logs.filter(l => l.exerciseId === id).sort(byDate)[0];
+  if(same || !mv) return same;
+  return STATE.logs.filter(l => l.movement === mv && !l.isTest).sort(byDate)[0];
 }
 function loggedThisWeek(exId){
   return STATE.logs.find(l=>l.exerciseId===exId && isThisTrainingWeek(l.date));
 }
 
+function roleChip(role){
+  if(!role) return '';
+  const bg = role === "heavy" ? ACCENT : role === "test" ? GOOD : "#26292E";
+  const fg = role === "heavy" || role === "test" ? "#121316" : "#9CA0A7";
+  return `<span class="chip" style="background:${bg};color:${fg};margin-left:6px;vertical-align:2px">${ROLE_LABEL[role]||role}</span>`;
+}
+
+// Prescription line. Percentages are always of the (estimated) 1RM - that
+// includes hip thrust, whose test is a 5RM but whose loads are 1RM-based.
+function prescriptionLine(ex, rec){
+  if(ex.isTest){
+    const what = ex.loadMode === "progression" ? "Max added weight, 1 rep"
+               : ex.testType === "repMax" ? `${ex.testReps||5}RM test` : "1RM test";
+    const at = rec ? ` - open around ${rec}kg` : ex.loadMode === "progression" ? "" : " - set your max in Lifts first";
+    return what + at;
+  }
+  if(ex.loadMode === "progression"){
+    return `${ex.sets} x ${ex.reps}` + (rec != null ? ` - suggested +${rec}kg` : " - pick a load you can hit cleanly");
+  }
+  return `${ex.sets} x ${ex.reps} @ ${Math.round(ex.pct*100)}% of 1RM` + (rec ? ` - target ${rec}kg` : " - set your 1RM in Lifts");
+}
+
 function strengthCard(ex){
   const rec = recommendedWeight(ex, STATE.oneRMs, STATE.logs);
   const already = loggedThisWeek(ex.id);
-  const last = already ? null : lastEntryFor(ex.id);
-  const refLabel = ex.testType==="repMax" ? `${ex.testReps||5}RM` : "1RM";
+  const last = already ? null : lastEntryFor(ex);
   // When already logged, the rows show what was actually recorded so it can
   // be corrected in place; otherwise they show the prescription.
   const prefill = already && already.setDetails && already.setDetails.length
     ? already.setDetails
-    : Array.from({length:ex.sets}, () => ({ reps: ex.reps, weight: rec }));
+    : Array.from({length:ex.sets}, () => ({ reps: ex.reps, weight: rec ? rec : '' }));
   const rowCount = already ? prefill.length : ex.sets;
   return `<div class="card ${ex.isTest?'test':''}" data-card="${ex.id}" data-extype="strength"
       data-exjson='${escAttr(ex)}' ${already?`data-logid="${already.id}"`:''}>
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div>
-        <div class="disp" style="font-size:16px;font-weight:600">${esc(ex.name)}</div>
-        <div class="xsmall muted" style="margin-top:2px">${ex.sets} x ${ex.reps} @ ${Math.round(ex.pct*100)}% of ${refLabel} - target ${rec}kg</div>
+        <div class="disp" style="font-size:16px;font-weight:600">${esc(ex.name)}${roleChip(ex.role)}</div>
+        <div class="xsmall muted" style="margin-top:2px">${esc(prescriptionLine(ex, rec))}</div>
         ${ex.style ? `<div class="xsmall" style="margin-top:4px;color:#d6d3d1">${esc(ex.style)}</div>` : ''}
         ${blockBadge(ex)}
       </div>
@@ -1004,7 +1561,7 @@ function strengthCard(ex){
 
 function accessoryCard(ex){
   const already = loggedThisWeek(ex.id);
-  const last = already ? null : lastEntryFor(ex.id);
+  const last = already ? null : lastEntryFor(ex);
   const showWeight = !ex.bodyweight && needsWeight(ex.name);
   const lastSets = last && last.setDetails ? last.setDetails : [];
   const prefill = already && already.setDetails && already.setDetails.length
@@ -1040,7 +1597,7 @@ function accessoryCard(ex){
 
 function skillCard(ex){
   const already = loggedThisWeek(ex.id);
-  const last = already ? null : lastEntryFor(ex.id);
+  const last = already ? null : lastEntryFor(ex);
   return `<div class="card ${ex.isTest?'test':''}" data-card="${ex.id}" data-extype="skill"
       data-exjson='${escAttr(ex)}' ${already?`data-logid="${already.id}"`:''}>
     <div class="disp" style="font-size:16px;font-weight:600">${esc(ex.name)}</div>
@@ -1062,7 +1619,7 @@ function skillCard(ex){
 
 function conditioningCard(ex){
   const already = loggedThisWeek(ex.id);
-  const last = already ? null : lastEntryFor(ex.id);
+  const last = already ? null : lastEntryFor(ex);
   return `<div class="card" data-card="${ex.id}" data-extype="conditioning"
       data-exjson='${escAttr(ex)}' ${already?`data-logid="${already.id}"`:''}>
     <div class="disp" style="font-size:16px;font-weight:600">${esc(ex.name)}</div>
@@ -1152,35 +1709,108 @@ function savedWodCard(day, w){
 // ---------- Program ----------
 
 function renderProgram(){
-  let html = `<div class="disp" style="font-size:24px;text-transform:uppercase;font-weight:600;margin-bottom:4px">Weekly Program</div>
-  <p class="xsmall muted" style="margin-bottom:12px">Each weekday runs one focus lift on a 6-week block. After the week-6 test the same lift restarts at week 1 off your new max, staggered so no two lifts test in the same week. Weeks roll over Sunday 11pm. Ask Claude to swap a lift whenever you want a change.</p>`;
+  const prog = activeProgram();
+  const total = blockWeekCount();
+  const intro = prog.syncedTesting
+    ? `Every lift runs one shared ${total}-week cycle. Each lift has heavy, medium and light days - only the heavy day is meant to be hard. The final week is a light week with all maxes tested together, then the cycle restarts off your new numbers. Weeks roll over Sunday 11pm.`
+    : `Each training day runs one focus lift on its own ${total}-week block. After the final test the same lift restarts at week 1 off your new max, staggered so no two lifts test in the same week. Weeks roll over Sunday 11pm.`;
+  let html = `<div class="disp" style="font-size:24px;text-transform:uppercase;font-weight:600;margin-bottom:4px">${esc(prog.name)}</div>
+  <p class="xsmall muted" style="margin-bottom:12px;line-height:1.45">${intro}</p>`;
+
+  if(prog.syncedTesting){
+    const pos = cyclePosition(prog, null);
+    html += `<div class="card sub" style="margin-bottom:12px">
+      <div class="small" style="font-weight:500">Cycle week ${pos.weekInBlock} of ${pos.totalWeeks}${pos.testWeek ? ' - test week' : ''}</div>
+      <div class="xsmall muted" style="margin-top:3px">${pos.testWeek ? 'Maxes this week.' : `Maxes in ${pos.totalWeeks - pos.weekInBlock} week${pos.totalWeeks - pos.weekInBlock === 1 ? '' : 's'}.`}</div>
+    </div>`;
+  }
+
   DAY_ORDER.forEach(day=>{
-    const primary = buildPrimaryExercise(day, STATE.slotState);
-    const dayData = ACCESSORY_PROGRAM[day];
+    const cfg = dayConfig(day);
+    const sessions = buildDaySessions(day);
+    const accs = dayAccessories(day);
+    const cond = dayConditioning(day);
+    const rest = !sessions.length && !accs.length && !cond;
+    const tag = !sessions.length ? esc(cfg.focus || 'Rest')
+              : sessions.some(x=>x.role==="test") ? 'Test day'
+              : cfg.kind === "light" ? 'Light + CrossFit'
+              : prog.syncedTesting ? 'Strength'
+              : `Week ${sessions[0].weekInBlock}/${sessions[0].totalWeeks}`;
     html += `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
         <div class="disp" style="font-size:15px;font-weight:600;text-transform:uppercase">${day}</div>
-        <div class="xsmall accent">${primary ? `Week ${primary.weekInBlock}/6` : esc(dayData.staticFocus||'')}</div>
+        <div class="xsmall accent">${tag}</div>
       </div>`;
-    if(primary){
-      html += `<div class="card sub" style="margin-top:8px">
-        <div class="small" style="font-weight:500">${esc(primary.name)}</div>
-        <div class="xsmall muted" style="margin-top:2px">${esc(primary.blockLabel)}</div>`;
-      html += primary.type==="strength"
-        ? `<div class="xsmall muted tab-num" style="margin-top:4px">Now: ${primary.sets}x${primary.reps} @ ${Math.round(primary.pct*100)}%${primary.isTest?' - Test week':''}</div>`
-        : `<div class="xsmall muted" style="margin-top:4px">${esc(primary.prescription)}</div>`;
-      if(primary.complete) html += `<div class="xsmall accent" style="margin-top:6px;text-transform:uppercase">Test overdue - restarts once logged</div>`;
+    sessions.forEach(p=>{
+      const detail = p.type === "skill" ? esc(p.prescription)
+        : p.isTest ? (p.loadMode === "progression" ? "Max added weight" : p.testType === "repMax" ? `${p.testReps}RM test` : "1RM test")
+        : p.loadMode === "progression" ? `${p.sets}x${p.reps}, load from last session`
+        : `${p.sets}x${p.reps} @ ${Math.round(p.pct*100)}%`;
+      html += `<div class="card sub" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div>
+          <div class="small" style="font-weight:500">${esc(p.name)}${roleChip(p.role)}</div>
+          ${prog.syncedTesting ? '' : `<div class="xsmall muted" style="margin-top:2px">${esc(p.blockLabel)}</div>`}
+        </div>
+        <div class="xsmall muted tab-num" style="text-align:right">${detail}</div>
+      </div>`;
+    });
+    if(accs.length || cond){
+      html += `<div style="margin-top:8px">`;
+      accs.forEach(ex=>{
+        html += `<div class="small" style="display:flex;justify-content:space-between;color:#d6d3d1;padding:2px 0">
+          <span>${esc(ex.name)}</span><span class="muted tab-num">${ex.sets}x${ex.reps}${ex.repUnit||''}</span></div>`;
+      });
+      if(cond){
+        html += `<div class="small" style="display:flex;justify-content:space-between;color:#d6d3d1;padding:2px 0">
+          <span>${esc(cond.name)}</span><span class="muted tab-num">For time</span></div>`;
+      }
       html += `</div>`;
     }
-    html += `<div style="margin-top:8px">`;
-    dayData.exercises.forEach(ex=>{
-      html += `<div class="small" style="display:flex;justify-content:space-between;color:#d6d3d1;padding:2px 0">
-        <span>${esc(ex.name)}</span><span class="muted tab-num">${ex.type==="conditioning"?"For time":`${ex.sets}x${ex.reps}${ex.repUnit||''}`}</span></div>`;
-    });
-    if(!primary && dayData.exercises.length===0) html += `<div class="small muted" style="font-style:italic">Rest</div>`;
-    html += `</div></div>`;
+    if(rest) html += `<div class="small muted" style="font-style:italic;margin-top:6px">Rest</div>`;
+    html += `</div>`;
   });
+
+  html += renderProgramPicker();
   return html;
+}
+
+// ---------- Program picker ----------
+
+function renderProgramPicker(){
+  const prog = activeProgram();
+  const total = blockWeekCount();
+  let html = `<div style="margin-top:28px;border-top:1px solid #26292E;padding-top:20px">
+    <div class="disp" style="font-size:17px;text-transform:uppercase;font-weight:600;margin-bottom:4px">Choose a Program</div>
+    <p class="xsmall muted" style="margin-bottom:12px">Switching keeps every 1RM and all logged history - only the weekly layout changes. Each program remembers where its blocks were up to.</p>`;
+
+  Object.values(PROGRAMS).forEach(p=>{
+    const active = p.key === prog.key;
+    const trainDays = DAY_ORDER.filter(d=>{
+      const c = p.days[d];
+      return c && ((c.sessions||[]).length || (c.accessories||[]).length || c.conditioning);
+    }).length;
+    html += `<div class="card" data-progpick="${p.key}" style="cursor:pointer;${active?`border:1px solid ${ACCENT}`:''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="flex:1">
+          <div class="disp" style="font-size:15px;font-weight:600">${esc(p.name)}</div>
+          <div class="xsmall muted" style="margin-top:3px">${esc(p.blurb)}</div>
+          <div class="xsmall muted" style="margin-top:5px">${trainDays} training days/week</div>
+        </div>
+        ${active ? `<span class="chip" style="background:${ACCENT};color:#121316">Active</span>` : ''}
+      </div>
+    </div>`;
+  });
+
+  html += `<div style="margin-top:18px">
+    <div class="disp" style="font-size:15px;text-transform:uppercase;font-weight:600;margin-bottom:4px">Retest Every</div>
+    <p class="xsmall muted" style="margin-bottom:10px">How long each block runs before its test week. The prescriptions rescale to fit - shorter blocks ramp faster, longer ones spend more time accumulating volume.</p>
+    <div class="pill-row" style="margin-bottom:6px">`;
+  for(let n=MIN_BLOCK_WEEKS; n<=MAX_BLOCK_WEEKS; n++){
+    html += `<button class="pill ${n===total?'active':''}" data-weeks="${n}">${n} wk</button>`;
+  }
+  html += `</div></div>`;
+
+  return html + `</div>`;
 }
 
 // ---------- Lifts ----------
@@ -1206,6 +1836,28 @@ function renderLifts(){
     });
     html += `</div></div>`;
   });
+  const accKeys = accessoryMaxKeys();
+  if(accKeys.length){
+    html += `<div style="margin-bottom:20px">
+      <div class="xsmall muted" style="text-transform:uppercase;margin-bottom:4px">Accessory Estimates</div>
+      <p class="xsmall muted" style="margin-bottom:8px;line-height:1.4">Calculated from your logged sets, not tested directly. Estimates from high-rep work are rough - treat them as a progress signal, not a true max. These never drive prescribed loads.</p>
+      <div class="grid2">`;
+    accKeys.forEach(k=>{
+      const editing = STATE.editingLift === k;
+      const v = STATE.oneRMs[k] || 0;
+      html += `<div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:4px">
+          <div class="xsmall muted" style="text-transform:uppercase;line-height:1.2">${esc(accessoryLabel(k))}</div>
+          <button class="edit-lift-btn" data-lift="${k}" style="background:none;border:none;cursor:pointer;padding:0">${iconSpan('pencil',13,'#8B8F96')}</button>
+        </div>
+        ${editing
+          ? `<input inputmode="decimal" class="lift-edit-input tab-num numfield" data-lift="${k}" value="${v}" style="margin-top:4px;font-size:18px;font-weight:600;color:${ACCENT}"/>`
+          : `<div class="disp tab-num" style="font-size:22px;font-weight:600;margin-top:2px;color:#C7CAD1">${v} <span class="small muted">kg</span></div>`}
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
   html += `<div><div class="disp" style="font-size:17px;font-weight:600;text-transform:uppercase;display:flex;align-items:center;gap:6px;margin-bottom:8px">
     ${iconSpan('trend',16,GOOD)} PR History</div>`;
   if(!STATE.prs.length){
@@ -1213,7 +1865,7 @@ function renderLifts(){
   } else {
     STATE.prs.slice(0,15).forEach(pr=>{
       html += `<div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px">
-        <div><div class="small" style="font-weight:500">${LIFT_LABELS[pr.lift]}</div><div class="xsmall muted">${fmtDate(pr.date)}</div></div>
+        <div><div class="small" style="font-weight:500">${esc(LIFT_LABELS[pr.lift] || accessoryLabel(pr.lift))}${pr.estimated?` <span class="xsmall muted">est</span>`:''}</div><div class="xsmall muted">${fmtDate(pr.date)}</div></div>
         <div style="text-align:right"><div class="disp tab-num good" style="font-weight:600">est. ${pr.estOneRM} kg</div>
         <div class="xsmall muted tab-num">${pr.weight}kg x ${pr.reps}</div></div></div>`;
     });
@@ -1472,6 +2124,63 @@ function saveDayWod(day, wod){
   persistDayWods({ ...STATE.dayWods, [day]: { ...wod, savedAt: new Date().toISOString(), savedToHistory:false } });
   STATE.wodDraft = null; STATE.wodEditing = false;
   renderMain();
+}
+
+function switchProgram(key){
+  if(!PROGRAMS[key] || key === STATE.programKey) return;
+  STATE.programKey = key;
+  saveKey("settings", { programKey: STATE.programKey, blockWeeks: STATE.blockWeeks });
+  // Seed any day this program hasn't run before; days it has run keep their
+  // place, so switching back resumes mid-block rather than restarting.
+  seedProgramSlots(key);
+  const r = realignSlotsAfterTests(STATE.slotState, STATE.logs);
+  if(r.changed){ STATE.slotState = r.slotState; saveKey("slotState", r.slotState); }
+  // Selected day may not exist as a training day in the new program.
+  STATE.wodDraft = null; STATE.wodEditing = false;
+  renderMain();
+}
+
+function setBlockWeeks(n){
+  const v = Math.min(MAX_BLOCK_WEEKS, Math.max(MIN_BLOCK_WEEKS, parseInt(n,10)||DEFAULT_BLOCK_WEEKS));
+  if(v === STATE.blockWeeks) return;
+  STATE.blockWeeks = v;
+  saveKey("settings", { programKey: STATE.programKey, blockWeeks: v });
+  // Changing block length moves every test week, so re-space them.
+  respaceAllSlots();
+  renderMain();
+}
+
+// After a block-length change, keep each cycle at its current position
+// (clamped to the new length) and re-space staggered test weeks so none collide.
+function respaceAllSlots(){
+  const prog = activeProgram();
+  const total = blockWeekCount();
+  const thisWeek = startOfWeekSunday(new Date());
+  const slots = { ...slotsFor(prog.key) };
+  const keys = prog.syncedTesting ? ["__cycle"]
+    : programLiftKeys(prog).sort((a,b)=> firstDayOf(prog,a) - firstDayOf(prog,b));
+  keys.forEach(k=>{
+    const st = slots[k];
+    if(!st) return;
+    const startWeek = startOfWeekSunday(new Date(st.startDate));
+    if(startWeek > thisWeek) return;   // next cycle already scheduled - leave it
+    const elapsed = Math.round((thisWeek - startWeek) / MS_WEEK);
+    const pos = Math.min(Math.max(0, elapsed), total - 1);
+    let start = new Date(thisWeek.getTime() - pos * MS_WEEK);
+    if(!prog.syncedTesting) start = avoidTestCollision(k, start, slots, prog);
+    slots[k] = { ...st, startDate: start.toISOString() };
+  });
+  STATE.slotState = { ...STATE.slotState, [prog.key]: slots };
+  saveKey("slotState", STATE.slotState);
+}
+
+function attachProgramHandlers(){
+  document.querySelectorAll('[data-progpick]').forEach(c=>{
+    c.onclick = () => switchProgram(c.dataset.progpick);
+  });
+  document.querySelectorAll('[data-weeks]').forEach(b=>{
+    b.onclick = () => setBlockWeeks(b.dataset.weeks);
+  });
 }
 
 function attachLiftsHandlers(){
