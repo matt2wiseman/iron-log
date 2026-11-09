@@ -203,6 +203,21 @@ function distributeWeeks(phases, total){
 
 // Concrete week-by-week prescription for a block of `totalWeeks`. The final
 // week is always the test; everything before it is working weeks.
+// Fraction of 1RM you can lift for `reps` (inverse Epley).
+function repPct(reps){ return 1/(1 + reps/30); }
+// Reps in reserve implied by a load, after undoing any pause/tempo factor.
+function rirFromPct(pct, reps, loadFactor){
+  const eff = pct / (loadFactor || 1);
+  if(!(eff > 0)) return null;
+  return Math.max(0, Math.round((30*(1/eff - 1) - reps) * 2) / 2);
+}
+
+// Concrete week-by-week prescription for a block of `totalWeeks`. The final
+// week is always the test; everything before it is working weeks.
+// Blocks with a `rir` curve set heavy loads from reps-in-reserve: the target
+// tightens from rir.start in week 1 to rir.end in the last working week, eased
+// so most of the tightening lands late in the block. Load is then whatever you
+// can lift for (reps + reserve), scaled down for paused or tempo work.
 function generateWeeks(block, totalWeeks){
   const working = Math.max(1, totalWeeks - 1);
   const alloc = distributeWeeks(block.phases, working);
@@ -211,15 +226,20 @@ function generateWeeks(block, totalWeeks){
   block.phases.forEach((ph, pi)=>{
     const n = alloc[pi];
     for(let j=0;j<n;j++){
-      const t = n === 1 ? 0 : j/(n-1);
-      const pct = ph.pctEnd === undefined ? ph.pctStart : ph.pctStart + (ph.pctEnd - ph.pctStart)*t;
-      weeks.push({
-        week: w++,
-        sets: Array.isArray(ph.sets) ? ph.sets[Math.min(j, ph.sets.length-1)] : ph.sets,
-        reps: Array.isArray(ph.reps) ? ph.reps[Math.min(j, ph.reps.length-1)] : ph.reps,
-        pct: Math.round(pct*1000)/1000,
-        style: ph.style,
-      });
+      const sets = Array.isArray(ph.sets) ? ph.sets[Math.min(j, ph.sets.length-1)] : ph.sets;
+      const reps = Array.isArray(ph.reps) ? ph.reps[Math.min(j, ph.reps.length-1)] : ph.reps;
+      let pct, rir = null;
+      if(block.rir){
+        const t = working === 1 ? 1 : (w-1)/(working-1);
+        rir = block.rir.start + (block.rir.end - block.rir.start) * Math.pow(t, 1.5);
+        pct = repPct(reps + rir) * (ph.loadFactor || 1);
+        rir = Math.round(rir*2)/2;
+      } else {
+        const t = n === 1 ? 0 : j/(n-1);
+        pct = ph.pctEnd === undefined ? ph.pctStart : ph.pctStart + (ph.pctEnd - ph.pctStart)*t;
+      }
+      weeks.push({ week: w++, sets, reps, pct: Math.round(pct*1000)/1000, rir,
+                   loadFactor: ph.loadFactor || 1, style: ph.style });
     }
   });
   weeks.push({ week: w, sets: block.test.sets, reps: block.test.reps, pct: block.test.pct,
@@ -250,54 +270,54 @@ function blockWeeks(block, totalWeeks){
 const BLOCKS = {
   frontSquatPause: {
     key:"frontSquatPause", label:"Pause to Peak", type:"barbell", lift:"frontSquat",
-    name:"Front Squat", testType:"1rm",
+    name:"Front Squat", testType:"1rm", rir:{ start:4, end:0.5 },
     phases:[
-      {sets:4, reps:6, pctStart:0.65, pctEnd:0.70, share:2, style:"2s pause in the hole, controlled up"},
-      {sets:5, reps:3, pctStart:0.78, pctEnd:0.82, share:2, style:"No pause, drive hard out of the bottom"},
-      {sets:4, reps:2, pctStart:0.88, share:1, style:"Heavy doubles, stop if the elbows drop"},
+      {sets:4, reps:6, loadFactor:0.92, share:2, style:"2s pause in the hole, controlled up"},
+      {sets:5, reps:3, share:2, style:"No pause, drive hard out of the bottom"},
+      {sets:3, reps:2, share:1, style:"Heavy doubles, stop if the elbows drop"},
     ],
     test:{sets:1, reps:1, pct:0.95, style:"Build to a max single"},
   },
   benchPaused: {
     key:"benchPaused", label:"Paused Strength to Overload", type:"barbell", lift:"bench",
-    name:"Bench Press", testType:"1rm",
+    name:"Bench Press", testType:"1rm", rir:{ start:4, end:0.5 },
     phases:[
-      {sets:4, reps:6, pctStart:0.68, pctEnd:0.73, share:2, style:"1s pause on the chest every rep"},
-      {sets:5, reps:4, pctStart:0.78, share:1, style:"2s pause - hardest week for position"},
-      {sets:4, reps:4, pctStart:0.80, share:1, style:"Touch-and-go, use the overload"},
-      {sets:3, reps:2, pctStart:0.88, share:1, style:"Touch-and-go doubles, sharp lockout"},
+      {sets:4, reps:6, loadFactor:0.95, share:2, style:"1s pause on the chest every rep"},
+      {sets:5, reps:4, loadFactor:0.93, share:1, style:"2s pause - hardest week for position"},
+      {sets:4, reps:4, share:1, style:"Touch-and-go, use the overload"},
+      {sets:3, reps:2, share:1, style:"Touch-and-go doubles, sharp lockout"},
     ],
     test:{sets:1, reps:1, pct:0.95, style:"Build to a max single"},
   },
   hipThrustDouble: {
     key:"hipThrustDouble", label:"Double Progression", type:"barbell", lift:"hipThrust",
-    name:"Hip Thrust", testType:"repMax", testReps:5,
+    name:"Hip Thrust", testType:"repMax", testReps:5, rir:{ start:4, end:0.5 },
     phases:[
-      {sets:4, reps:12, pctStart:0.60, pctEnd:0.66, share:2, style:"2s squeeze at lockout every rep"},
-      {sets:4, reps:8, pctStart:0.72, pctEnd:0.76, share:2, style:"Full lockout, ribs down"},
-      {sets:3, reps:6, pctStart:0.82, share:1, style:"Heavy, still full lockout"},
+      {sets:4, reps:12, share:2, style:"2s squeeze at lockout every rep"},
+      {sets:4, reps:8, share:2, style:"Full lockout, ribs down"},
+      {sets:3, reps:6, share:1, style:"Heavy, still full lockout"},
     ],
     test:{sets:1, reps:5, pct:0.85, style:"Test: heaviest clean set of 5"},
   },
   strictPressVolume: {
     key:"strictPressVolume", label:"Volume Accumulation", type:"barbell", lift:"ohp",
-    name:"Strict Press", testType:"1rm",
+    name:"Strict Press", testType:"1rm", rir:{ start:6.5, end:0.5 },
     phases:[
-      {sets:5, reps:8, pctStart:0.62, share:1, style:"Strict - no leg drive, no layback"},
-      {sets:5, reps:[6,5], pctStart:0.68, pctEnd:0.74, share:2, style:"Strict, brace hard, full lockout"},
-      {sets:4, reps:4, pctStart:0.80, share:1, style:"Strict, reset each rep at the shoulder"},
-      {sets:4, reps:2, pctStart:0.87, share:1, style:"Heavy doubles"},
+      {sets:5, reps:8, share:1, style:"Strict - no leg drive, no layback"},
+      {sets:5, reps:[6,5], share:2, style:"Strict, brace hard, full lockout"},
+      {sets:4, reps:4, share:1, style:"Strict, reset each rep at the shoulder"},
+      {sets:3, reps:2, share:1, style:"Heavy doubles"},
     ],
     test:{sets:1, reps:1, pct:0.95, style:"Build to a max single"},
   },
   deadliftCluster: {
     key:"deadliftCluster", label:"Cluster Loading", type:"barbell", lift:"deadlift",
-    name:"Deadlift", testType:"1rm",
+    name:"Deadlift", testType:"1rm", rir:{ start:5.5, end:1 },
     phases:[
-      {sets:4, reps:5, pctStart:0.70, share:1, style:"Straight sets, dead stop each rep"},
-      {sets:5, reps:3, pctStart:0.78, share:1, style:"Cluster: 3 reps, 20s rest, repeat"},
-      {sets:[5,6], reps:2, pctStart:0.83, pctEnd:0.86, share:2, style:"Cluster: 2 reps, 30s rest, repeat"},
-      {sets:5, reps:1, pctStart:0.90, share:1, style:"Cluster singles, 30s rest between"},
+      {sets:4, reps:5, share:1, style:"Straight sets, dead stop each rep"},
+      {sets:5, reps:3, share:1, style:"Cluster: 3 reps, 20s rest, repeat"},
+      {sets:[5,6], reps:2, share:2, style:"Cluster: 2 reps, 30s rest, repeat"},
+      {sets:3, reps:1, share:1, style:"Cluster singles, 30s rest between"},
     ],
     test:{sets:1, reps:1, pct:0.95, style:"Build to a max single"},
   },
@@ -479,11 +499,12 @@ const NO_WEIGHT_PATTERNS = [
   "pull-up","pullup","pull up","chin-up","chinup","toes-to-bar","toes to bar","t2b",
   "muscle-up","muscle up","handstand","hspu","ring dip","dip","box jump","box step",
   "mountain climber","plank","hollow","v-up","crunch","lunge walk","bear crawl",
-  "sled push","sled pull","farmers carry","broad jump","tuck jump","star jump",
+  "broad jump","tuck jump","star jump","ring row","inverted row",
 ];
 
 // These override the above - e.g. "weighted pull-up" DOES take load.
-const FORCE_WEIGHT_PATTERNS = ["weighted","dumbbell","db ","kettlebell","kb ","barbell","loaded","goblet","wall ball","wallball","med ball","medicine ball","sandbag","plate"];
+const FORCE_WEIGHT_PATTERNS = ["weighted","dumbbell","db ","kettlebell","kb ","barbell","loaded","goblet","wall ball","wallball","med ball","medicine ball","sandbag","plate",
+  "farmer","sled","yoke","chest-supported","chest supported","bent-over","bent over","pendlay","seal row","cable","t-bar","landmine","upright row"];
 
 // A movement takes load unless it's a machine, a run, or bodyweight
 // gymnastics - with an override list so "weighted pull-up" still asks for kg.
@@ -642,7 +663,7 @@ function sessionExercise(prog, day, slot, role, pos){
 
   if(role === "test"){
     const t = weeks[weeks.length-1];
-    return { ...base, type:"strength", lift:block.lift, sets:t.sets, reps:t.reps, pct:t.pct, style:t.style, isTest:true };
+    return { ...base, type:"strength", lift:block.lift, sets:t.sets, reps:t.reps, pct:t.pct, style:t.style, isTest:true, rir:null };
   }
 
   const row = weeks.find(w=>w.week===workingWeek) || weeks[0];
@@ -650,9 +671,12 @@ function sessionExercise(prog, day, slot, role, pos){
   const sets = role === "heavy" ? row.sets
              : role === "medium" ? Math.max(2, row.sets - 1)
              : Math.max(2, Math.min(3, row.sets - 2));
+  const pct = Math.round(row.pct * factor * 1000) / 1000;
+  // Percentage-based blocks get a reps-in-reserve target for every role, so
+  // medium and light days show how much easier they're meant to be.
+  const rir = block.rir ? rirFromPct(pct, row.reps, row.loadFactor) : null;
   return {
-    ...base, type:"strength", lift:block.lift, sets, reps:row.reps,
-    pct: Math.round(row.pct * factor * 1000) / 1000,
+    ...base, type:"strength", lift:block.lift, sets, reps:row.reps, pct, rir,
     style: role === "light" ? "Light - paused reps, crisp technique, stay 3-4 reps from failure" : row.style,
     isTest:false,
   };
@@ -711,8 +735,11 @@ function realignSlotsAfterTests(allSlotState, logs, programKey){
   const slots = { ...(allSlotState[prog.key] || {}) };
   let changed = false;
 
-  const testLogs = (slotFilter) => logs
+  // Tests logged before a manual week change are history, not a signal to
+  // restart - otherwise moving back a week gets undone by old tests.
+  const testLogs = (slotFilter, st) => logs
     .filter(l => l.isTest && l.programKey === prog.key && (!slotFilter || l.slot === slotFilter))
+    .filter(l => !st || !st.manualSetAt || new Date(l.date) > new Date(st.manualSetAt))
     .sort((a,b)=> new Date(b.date) - new Date(a.date));
 
   const schedule = (st, testLog) => {
@@ -730,7 +757,7 @@ function realignSlotsAfterTests(allSlotState, logs, programKey){
 
   if(prog.syncedTesting){
     const st = slots.__cycle;
-    const latest = testLogs(null)[0];
+    const latest = testLogs(null, st)[0];
     // Only a test from the current cycle can restart it - so logging the
     // Friday tests after Wednesday's doesn't shift the cycle a second time.
     if(st && latest && st.lastTestLogId !== latest.id
@@ -742,7 +769,7 @@ function realignSlotsAfterTests(allSlotState, logs, programKey){
     programLiftKeys(prog).forEach(slot=>{
       const st = slots[slot];
       if(!st) return;
-      const latest = testLogs(slot)[0];
+      const latest = testLogs(slot, st)[0];
       if(!latest || st.lastTestLogId === latest.id) return;
       if(new Date(latest.date) < startOfWeekSunday(new Date(st.startDate))) return;
       const next = schedule(st, latest);
@@ -896,11 +923,12 @@ function recommendedWeight(ex, oneRMs, logs){
   const base = round25((oneRMs[lift]||0)*ex.pct);
   const prior = logs.filter(l=>l.exerciseId===ex.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const last = prior[0];
-  if(!last) return base;
-  // Carry a load forward only when this exact session's prescription is
-  // unchanged; when the block moves on, the percentage drives the load.
+  if(!last || !last.weight) return base;
+  // The block's reps-in-reserve curve sets the load. Last time at this same
+  // prescription only adjusts it: missed reps hold the load at what you
+  // managed, and a successful session never makes the target go backwards.
   if(last.reps === ex.reps && last.sets === ex.sets){
-    return last.hitTarget ? round25(last.weight+increment) : round25(last.weight);
+    return last.hitTarget ? Math.max(base, round25(last.weight)) : Math.min(base, round25(last.weight));
   }
   return base;
 }
@@ -1378,7 +1406,7 @@ function renderToday(){
 
   html += `<div style="margin-bottom:16px">
     <div class="disp" style="font-size:24px;text-transform:uppercase;font-weight:600">${day}</div>
-    <div class="small accent">${subtitle}</div></div>`;
+    <div class="small accent">${subtitle}${sessions.length ? ` <button class="linkbtn" id="change-week-link" style="padding:0 0 0 4px;font-size:11px">change week</button>` : ''}</div></div>`;
 
   // Synced test week: say plainly what's happening and when the maxes are.
   if(syncedPos && syncedPos.testWeek){
@@ -1525,6 +1553,20 @@ function prescriptionLine(ex, rec){
   return `${ex.sets} x ${ex.reps} @ ${Math.round(ex.pct*100)}% of 1RM` + (rec ? ` - target ${rec}kg` : " - set your 1RM in Lifts");
 }
 
+// Reps-in-reserve target. Near the limit, the load assumes your max is
+// accurate - so give a plain cue for backing off if the first set says it isn't.
+function rirLine(ex){
+  if(ex.rir === null || ex.rir === undefined || ex.isTest) return '';
+  const r = ex.rir;
+  const words = r <= 0.5 ? "0-1 reps left in the tank"
+              : r === 1 ? "about 1 rep left in the tank"
+              : r >= 5 ? "5+ reps left in the tank - should feel easy"
+              : `about ${r} reps left in the tank`;
+  const near = ex.role === "heavy" && r <= 1.5;
+  const color = near ? ACCENT : '#9CA0A7';
+  return `<div class="xsmall" style="margin-top:4px;color:${color}">Target: ${words}${near ? ` on the first set. If it moves slowly, drop 2.5-5kg for the rest.` : ''}</div>`;
+}
+
 function strengthCard(ex){
   const rec = recommendedWeight(ex, STATE.oneRMs, STATE.logs);
   const already = loggedThisWeek(ex.id);
@@ -1542,6 +1584,7 @@ function strengthCard(ex){
         <div class="disp" style="font-size:16px;font-weight:600">${esc(ex.name)}${roleChip(ex.role)}</div>
         <div class="xsmall muted" style="margin-top:2px">${esc(prescriptionLine(ex, rec))}</div>
         ${ex.style ? `<div class="xsmall" style="margin-top:4px;color:#d6d3d1">${esc(ex.style)}</div>` : ''}
+        ${rirLine(ex)}
         ${blockBadge(ex)}
       </div>
       <span style="display:${already?'inline-flex':'none'}">${iconSpan('check',18,GOOD)}</span>
@@ -1562,7 +1605,9 @@ function strengthCard(ex){
 function accessoryCard(ex){
   const already = loggedThisWeek(ex.id);
   const last = already ? null : lastEntryFor(ex);
-  const showWeight = !ex.bodyweight && needsWeight(ex.name);
+  // Programmed accessories declare bodyweight explicitly. Guessing from the
+  // name is only for pasted WODs - it mislabelled "Chest-supported Row".
+  const showWeight = !ex.bodyweight;
   const lastSets = last && last.setDetails ? last.setDetails : [];
   const prefill = already && already.setDetails && already.setDetails.length
     ? already.setDetails
@@ -1717,13 +1762,7 @@ function renderProgram(){
   let html = `<div class="disp" style="font-size:24px;text-transform:uppercase;font-weight:600;margin-bottom:4px">${esc(prog.name)}</div>
   <p class="xsmall muted" style="margin-bottom:12px;line-height:1.45">${intro}</p>`;
 
-  if(prog.syncedTesting){
-    const pos = cyclePosition(prog, null);
-    html += `<div class="card sub" style="margin-bottom:12px">
-      <div class="small" style="font-weight:500">Cycle week ${pos.weekInBlock} of ${pos.totalWeeks}${pos.testWeek ? ' - test week' : ''}</div>
-      <div class="xsmall muted" style="margin-top:3px">${pos.testWeek ? 'Maxes this week.' : `Maxes in ${pos.totalWeeks - pos.weekInBlock} week${pos.totalWeeks - pos.weekInBlock === 1 ? '' : 's'}.`}</div>
-    </div>`;
-  }
+  html += renderWeekControl(prog);
 
   DAY_ORDER.forEach(day=>{
     const cfg = dayConfig(day);
@@ -1974,6 +2013,8 @@ function readSetRows(card){
 function attachTodayHandlers(){
   wireNumFields();
   wireSetTicks();
+  const cw = document.getElementById('change-week-link');
+  if(cw) cw.onclick = () => { STATE.tab = "program"; render(); };
 
   document.querySelectorAll('[data-day]').forEach(b=>{
     b.onclick = () => { STATE.selectedDay = b.dataset.day; STATE.wodDraft=null; STATE.wodEditing=false; renderMain(); };
@@ -2150,6 +2191,83 @@ function setBlockWeeks(n){
   renderMain();
 }
 
+// Put a cycle (one lift, or a synced program's shared cycle) at a chosen week.
+// Week N means this calendar week becomes week N. Any tests already logged
+// are marked as accounted for, so realignment can't override the choice, and
+// the delete-undo trail is cleared so deleting an old test won't undo it.
+function setCycleWeek(slot, week){
+  const prog = activeProgram();
+  const total = blockWeekCount();
+  const w = Math.min(total, Math.max(1, parseInt(week,10) || 1));
+  const key = prog.syncedTesting ? "__cycle" : slot;
+  const slots = { ...slotsFor(prog.key) };
+  const st = slots[key];
+  if(!st) return false;
+  const latestTest = STATE.logs
+    .filter(l => l.isTest && l.programKey === prog.key && (prog.syncedTesting || l.slot === slot))
+    .sort((a,b)=> new Date(b.date) - new Date(a.date))[0];
+  const thisWeek = startOfWeekSunday(new Date());
+  slots[key] = { ...st,
+    startDate: new Date(thisWeek.getTime() - (w-1)*MS_WEEK).toISOString(),
+    lastTestLogId: latestTest ? latestTest.id : (st.lastTestLogId || null),
+    testedWeek: null, prevStartDate: null, prevTestLogId: null, prevTestedWeek: null,
+    manualSetAt: new Date().toISOString() };
+  STATE.slotState = { ...STATE.slotState, [prog.key]: slots };
+  saveKey("slotState", STATE.slotState);
+  return true;
+}
+
+// Lifts in a staggered program whose test weeks now coincide.
+function testWeekClashes(prog){
+  if(prog.syncedTesting) return [];
+  const total = blockWeekCount();
+  const slots = slotsFor(prog.key);
+  const byWeek = {};
+  programLiftKeys(prog).forEach(k=>{
+    if(!slots[k]) return;
+    const wk = projectedTestWeek(slots[k].startDate, total).getTime();
+    (byWeek[wk] = byWeek[wk] || []).push(k);
+  });
+  return Object.values(byWeek).filter(g => g.length > 1);
+}
+
+function weekPills(slot, current, total){
+  let h = `<div class="pill-row" style="margin:6px -16px 0;padding-bottom:2px">`;
+  for(let n=1; n<=total; n++){
+    h += `<button class="pill ${n===current?'active':''}" data-setweek="${n}" data-slot="${slot}"
+      style="padding:5px 11px">${n===total ? `${n} test` : n}</button>`;
+  }
+  return h + `</div>`;
+}
+
+function renderWeekControl(prog){
+  const total = blockWeekCount();
+  if(prog.syncedTesting){
+    const pos = cyclePosition(prog, null);
+    return `<div class="card sub" style="margin-bottom:12px">
+      <div class="small" style="font-weight:500">Cycle week ${pos.weekInBlock} of ${pos.totalWeeks}${pos.testWeek ? ' - test week' : ''}</div>
+      <div class="xsmall muted" style="margin-top:3px">${pos.testWeek ? 'Maxes this week.' : `Maxes in ${pos.totalWeeks - pos.weekInBlock} week${pos.totalWeeks - pos.weekInBlock === 1 ? '' : 's'}.`}
+        Missed a week? Tap the week you want to be on - every lift moves together.</div>
+      ${weekPills("__cycle", pos.weekInBlock, total)}
+    </div>`;
+  }
+  let h = `<div class="card sub" style="margin-bottom:12px">
+    <div class="small" style="font-weight:500">Cycle weeks</div>
+    <div class="xsmall muted" style="margin-top:3px">Missed a week? Tap the week each lift should be on.</div>`;
+  programLiftKeys(prog).sort((a,b)=> firstDayOf(prog,a) - firstDayOf(prog,b)).forEach(k=>{
+    const b = liftBlock(prog, k);
+    const pos = cyclePosition(prog, k);
+    h += `<div style="margin-top:10px"><div class="xsmall" style="color:#d6d3d1">${esc(b ? b.name : k)} - week ${pos.weekInBlock}/${pos.totalWeeks}</div>
+      ${weekPills(k, pos.weekInBlock, total)}</div>`;
+  });
+  const clashes = testWeekClashes(prog);
+  if(clashes.length){
+    const names = clashes.map(g => g.map(k => (liftBlock(prog,k)||{}).name || k).join(" and ")).join("; ");
+    h += `<div class="xsmall accent" style="margin-top:10px">Heads up: ${esc(names)} now test in the same week.</div>`;
+  }
+  return h + `</div>`;
+}
+
 // After a block-length change, keep each cycle at its current position
 // (clamped to the new length) and re-space staggered test weeks so none collide.
 function respaceAllSlots(){
@@ -2180,6 +2298,18 @@ function attachProgramHandlers(){
   });
   document.querySelectorAll('[data-weeks]').forEach(b=>{
     b.onclick = () => setBlockWeeks(b.dataset.weeks);
+  });
+  document.querySelectorAll('[data-setweek]').forEach(b=>{
+    b.onclick = () => {
+      const prog = activeProgram();
+      const w = parseInt(b.dataset.setweek,10);
+      const slot = b.dataset.slot;
+      const name = prog.syncedTesting ? "the whole cycle" : ((liftBlock(prog, slot)||{}).name || "this lift");
+      if(confirm(`Move ${name} to week ${w}? This week becomes week ${w}.`)){
+        setCycleWeek(slot, w);
+        renderMain();
+      }
+    };
   });
 }
 
