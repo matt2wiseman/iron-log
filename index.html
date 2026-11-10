@@ -262,7 +262,7 @@ function generateSkillWeeks(block, totalWeeks){
 }
 
 function blockWeeks(block, totalWeeks){
-  return block.type === "skill" ? generateSkillWeeks(block, totalWeeks) : generateWeeks(block, totalWeeks);
+  return (block.type === "skill" || block.type === "run") ? generateSkillWeeks(block, totalWeeks) : generateWeeks(block, totalWeeks);
 }
 
 // ---------- Block library ----------
@@ -271,19 +271,21 @@ const BLOCKS = {
   frontSquatPause: {
     key:"frontSquatPause", label:"Pause to Peak", type:"barbell", lift:"frontSquat",
     name:"Front Squat", testType:"1rm", rir:{ start:4, end:0.5 },
+    volume:{ sets:3, reps:[8,6], rirStart:3, rirEnd:1.5, loadFactor:0.92, style:"Hypertrophy sets - 3s lowering, upright torso" },
     phases:[
       {sets:4, reps:6, loadFactor:0.92, share:2, style:"2s pause in the hole, controlled up"},
       {sets:5, reps:3, share:2, style:"No pause, drive hard out of the bottom"},
-      {sets:3, reps:2, share:1, style:"Heavy doubles, stop if the elbows drop"},
+      {sets:3, reps:2, share:1, style:"Doubles - end the set if the elbows drop"},
     ],
     test:{sets:1, reps:1, pct:0.95, style:"Build to a max single"},
   },
   benchPaused: {
     key:"benchPaused", label:"Paused Strength to Overload", type:"barbell", lift:"bench",
     name:"Bench Press", testType:"1rm", rir:{ start:4, end:0.5 },
+    volume:{ sets:3, reps:[10,8], rirStart:3, rirEnd:1, loadFactor:0.95, style:"Hypertrophy sets - 3s lowering, touch and press" },
     phases:[
       {sets:4, reps:6, loadFactor:0.95, share:2, style:"1s pause on the chest every rep"},
-      {sets:5, reps:4, loadFactor:0.93, share:1, style:"2s pause - hardest week for position"},
+      {sets:5, reps:4, loadFactor:0.93, share:1, style:"2s pause on the chest, stay tight"},
       {sets:4, reps:4, share:1, style:"Touch-and-go, use the overload"},
       {sets:3, reps:2, share:1, style:"Touch-and-go doubles, sharp lockout"},
     ],
@@ -295,7 +297,7 @@ const BLOCKS = {
     phases:[
       {sets:4, reps:12, share:2, style:"2s squeeze at lockout every rep"},
       {sets:4, reps:8, share:2, style:"Full lockout, ribs down"},
-      {sets:3, reps:6, share:1, style:"Heavy, still full lockout"},
+      {sets:3, reps:6, share:1, style:"Full lockout, 1s squeeze at the top"},
     ],
     test:{sets:1, reps:5, pct:0.85, style:"Test: heaviest clean set of 5"},
   },
@@ -306,7 +308,7 @@ const BLOCKS = {
       {sets:5, reps:8, share:1, style:"Strict - no leg drive, no layback"},
       {sets:5, reps:[6,5], share:2, style:"Strict, brace hard, full lockout"},
       {sets:4, reps:4, share:1, style:"Strict, reset each rep at the shoulder"},
-      {sets:3, reps:2, share:1, style:"Heavy doubles"},
+      {sets:3, reps:2, share:1, style:"Doubles - strict, full lockout"},
     ],
     test:{sets:1, reps:1, pct:0.95, style:"Build to a max single"},
   },
@@ -315,9 +317,9 @@ const BLOCKS = {
     name:"Deadlift", testType:"1rm", rir:{ start:5.5, end:1 },
     phases:[
       {sets:4, reps:5, share:1, style:"Straight sets, dead stop each rep"},
-      {sets:5, reps:3, share:1, style:"Cluster: 3 reps, 20s rest, repeat"},
-      {sets:[5,6], reps:2, share:2, style:"Cluster: 2 reps, 30s rest, repeat"},
-      {sets:3, reps:1, share:1, style:"Cluster singles, 30s rest between"},
+      {sets:5, reps:3, share:1, style:"Cluster sets: each set is 3 singles with 20s rest between reps"},
+      {sets:[5,6], reps:2, share:2, style:"Cluster sets: each set is 2 singles with 30s rest between reps"},
+      {sets:3, reps:1, share:1, style:"Singles - full reset and brace before each"},
     ],
     test:{sets:1, reps:1, pct:0.95, style:"Build to a max single"},
   },
@@ -327,12 +329,64 @@ const BLOCKS = {
   weightedPullup: {
     key:"weightedPullup", label:"Weighted Progression", type:"barbell", lift:"weightedPullup",
     name:"Weighted Pull-up", testType:"1rm", loadMode:"progression", prFromTestOnly:true,
+    volume:{ sets:3, reps:[10,8], rirStart:2, rirEnd:1, style:"Bodyweight for clean reps - add load once every set hits the reps" },
     phases:[
       {sets:4, reps:6, pctStart:0, share:2, style:"Dead hang to chin over bar, every rep clean"},
-      {sets:4, reps:4, pctStart:0, share:2, style:"Heavier - strict, no kip"},
-      {sets:3, reps:3, pctStart:0, share:1, style:"Heavy triples, full range"},
+      {sets:4, reps:4, pctStart:0, share:2, style:"Strict, no kip"},
+      {sets:3, reps:3, pctStart:0, share:1, style:"Triples, full range"},
     ],
     test:{sets:1, reps:1, pct:0, style:"Max added weight for one strict rep"},
+  },
+  // Clean: percentage-based technical progression inside Prilepin's ranges
+  // (70-80%: 3-6 reps/set; 80-90%: 2-4; 90%+: 1-2). No reps-in-reserve curve -
+  // on a technical lift, failure is a missed catch, not a grind.
+  cleanTechnical: {
+    key:"cleanTechnical", label:"Technique to Heavy Singles", type:"barbell", lift:"clean",
+    name:"Clean", testType:"1rm",
+    phases:[
+      {sets:5, reps:3, pctStart:0.70, pctEnd:0.75, share:2, style:"Smooth off the floor, fast elbows - catch every rep in a solid front rack"},
+      {sets:6, reps:2, pctStart:0.78, pctEnd:0.82, share:2, style:"Doubles - stay over the bar, finish the pull before pulling under"},
+      {sets:5, reps:1, pctStart:0.88, pctEnd:0.90, share:1, style:"Singles - only take what you can catch cleanly"},
+    ],
+    test:{sets:1, reps:1, pct:0.95, style:"Work up in singles to a max clean"},
+  },
+  // Runs follow the FIRST model: intervals, tempo and a long run, at least a
+  // day apart. {I} {T} {E} {G} are filled from your current 10k time.
+  runIntervals: {
+    key:"runIntervals", label:"VO2max Intervals", type:"run", name:"Interval Run", paceKeys:["I","E"],
+    stages:[
+      {share:1, prescription:"10 min easy, then 5 x 800m @ {I} with 2 min easy jog, then 10 min easy"},
+      {share:1, prescription:"10 min easy, then 6 x 800m @ {I} with 2 min easy jog, then 10 min easy"},
+      {share:1, prescription:"10 min easy, then 5 x 1km @ {I} with 2.5 min easy jog, then 10 min easy"},
+      {share:1, prescription:"10 min easy, then 6 x 1km @ {I} with 2.5 min easy jog, then 10 min easy"},
+      {share:1, prescription:"10 min easy, then 4 x 1.2km @ {I} with 3 min easy jog, then 10 min easy"},
+    ],
+    taper:"Sharpener: 10 min easy, 4 x 400m @ {I} with full recovery, 10 min easy",
+    test:{prescription:"Sharpener: 10 min easy, 4 x 400m @ {I} with full recovery, 10 min easy"},
+  },
+  runTempo: {
+    key:"runTempo", label:"Threshold Tempo", type:"run", name:"Tempo Run", paceKeys:["T","E"],
+    stages:[
+      {share:1, prescription:"10 min easy, 15 min @ {T}, 10 min easy"},
+      {share:1, prescription:"10 min easy, 2 x 10 min @ {T} with 2 min jog, 10 min easy"},
+      {share:1, prescription:"10 min easy, 20 min @ {T}, 10 min easy"},
+      {share:1, prescription:"10 min easy, 3 x 8 min @ {T} with 2 min jog, 10 min easy"},
+      {share:1, prescription:"10 min easy, 25 min @ {T}, 10 min easy"},
+    ],
+    taper:"Short tempo: 10 min easy, 10 min @ {T}, 10 min easy",
+    test:{prescription:"Short tempo: 10 min easy, 10 min @ {T}, 10 min easy"},
+  },
+  runLong: {
+    key:"runLong", label:"Long Run", type:"run", name:"Long Run", paceKeys:["E","T"], testLabel:"10k time trial",
+    stages:[
+      {share:1, prescription:"50 min @ {E}"},
+      {share:1, prescription:"60 min @ {E}"},
+      {share:1, prescription:"65 min @ {E}"},
+      {share:1, prescription:"70 min: 55 min @ {E}, then the last 15 min @ {T}"},
+      {share:1, prescription:"75 min: 55 min @ {E}, then the last 20 min @ {T}"},
+    ],
+    taper:"30 min @ {E}",
+    test:{prescription:"10k time trial: 15 min easy warm-up with 4 strides, then run 10km as fast as you can hold. Goal pace {G}.", km:10},
   },
   hspuSkill: {
     key:"hspuSkill", label:"Gymnastics Skill Progression", type:"skill",
@@ -447,6 +501,83 @@ const PROGRAMS = {
   },
 };
 
+// Hybrid Athlete: strength + hypertrophy for clean, front squat, bench,
+// deadlift and pull-ups; a 10k goal of 45:00 via three FIRST-style key runs;
+// medicine-ball rotational power, anti-rotation and carries for the trunk.
+// Lower-body strength and the clean sit on days with no run (explosive
+// strength is the one quality concurrent running reliably blunts, mostly
+// within the same session), and key runs are at least a day apart.
+PROGRAMS.athlete = {
+  key:"athlete",
+  name:"Hybrid Athlete",
+  blurb:"Six days: strength and size on clean, front squat, bench, deadlift and pull-ups, three key runs toward a 45:00 10k, and a lot of rotational and core work. Big, moderate, easy and open days.",
+  syncedTesting:true,
+  goal10k: 45*60,
+  testDays:{
+    Wednesday:["clean","frontSquat","deadlift"],
+    Thursday:["bench","pullup"],
+    Saturday:["longRun"],
+  },
+  lifts:{
+    clean:{ block:"cleanTechnical" },
+    frontSquat:{ block:"frontSquatPause" },
+    bench:{ block:"benchPaused" },
+    deadlift:{ block:"deadliftCluster" },
+    pullup:{ block:"weightedPullup" },
+    intervalRun:{ block:"runIntervals" },
+    tempoRun:{ block:"runTempo" },
+    longRun:{ block:"runLong" },
+  },
+  days:{
+    Monday:{ kind:"big", label:"Lower A",
+      note:"Clean first while you're fresh, then front squats. No running today.",
+      sessions:[ {lift:"clean", role:"heavy"}, {lift:"frontSquat", role:"heavy"} ],
+      accessories:[
+        acc("Straight Leg Deadlift (RDL)",3,8,"Hips back, feel the hamstring stretch"),
+        acc("Bulgarian Split Squat",3,8,"Front foot flat, control the way down",{perSide:true}),
+        acc("Ab Wheel Rollout",3,8,"Ribs down - stop before your lower back sags",{bodyweight:true}),
+        acc("Med Ball Rotational Throw",3,6,"Explosive: load the back hip and throw through the wall. Weight = ball",{perSide:true,noEstimate:true}) ]},
+    Tuesday:{ kind:"big", label:"Upper A + Intervals",
+      note:"Run the intervals 3+ hours after lifting if you can. If not, lift first, then run.",
+      sessions:[ {lift:"bench", role:"heavy"}, {lift:"pullup", role:"heavy"}, {lift:"intervalRun", role:"run"} ],
+      accessories:[
+        acc("Chest-supported Row",3,10,"Squeeze the shoulder blades, pause at the top"),
+        acc("Incline DB Press",3,10,"Controlled lowering, full stretch"),
+        acc("Landmine Rotation",3,8,"Turn from the hips, arms stay long",{perSide:true,noEstimate:true}) ]},
+    Wednesday:{ kind:"big", label:"Lower B",
+      note:"Fast cleans first, then deadlifts, then front squat volume. No running today.",
+      sessions:[ {lift:"clean", role:"medium", note:"Speed work - crisp turnover, catch high and ride it down"},
+                 {lift:"deadlift", role:"heavy"}, {lift:"frontSquat", role:"volume"} ],
+      accessories:[
+        acc("Pallof Press",3,10,"Press out and hold 2s - don't let the cable turn you",{perSide:true,noEstimate:true}),
+        acc("Suitcase Carry",3,30,"Heavy, one hand - stay tall, don't lean",{repUnit:"m",perSide:true}),
+        acc("Hanging Leg Raise",3,10,"Slow, no swing",{bodyweight:true}) ]},
+    Thursday:{ kind:"moderate", label:"Upper B + Tempo",
+      note:"Hypertrophy work for the upper body, then a tempo run on fresh legs. Tempo is comfortably hard, not race pace.",
+      sessions:[ {lift:"bench", role:"volume"}, {lift:"pullup", role:"volume"}, {lift:"tempoRun", role:"run"} ],
+      accessories:[
+        acc("Lateral Raise",3,15,"Lead with the elbows, slow lowering"),
+        acc("DB Curl",3,12,"Controlled, full range"),
+        acc("Overhead Triceps Extension",3,12,"Deep stretch at the bottom"),
+        acc("Cable Woodchop",3,10,"Rotate through the torso, hips follow",{perSide:true,noEstimate:true}) ]},
+    Friday:{ kind:"easy", label:"Core + Mobility",
+      note:"Core and rotation circuit, then 10-15 min of mobility. Optional: a 20-30 min easy jog, or your own easy EMOM if you feel fresh - log it in the WOD section.",
+      sessions:[],
+      accessories:[
+        acc("Med Ball Scoop Toss",3,6,"Hip-driven, explosive. Weight = ball",{perSide:true,noEstimate:true}),
+        acc("Dead Bug",3,10,"Lower back pinned to the floor",{perSide:true,bodyweight:true}),
+        acc("Side Plank",3,30,"Straight line, don't let the hip drop",{repUnit:"s",perSide:true,bodyweight:true}),
+        acc("Back Extension",3,12,"Squeeze the glutes at the top"),
+        acc("Standing Calf Raise",3,15,"Full stretch at the bottom - good for running") ]},
+    Saturday:{ kind:"moderate", label:"Long Run",
+      note:"Easy and conversational. The finish segments in later weeks are at tempo pace.",
+      sessions:[ {lift:"longRun", role:"run"} ] },
+    Sunday:{ kind:"open", label:"Open Day", focus:"Open day",
+      note:"Your call: EMOM, extra cardio, sport, or full rest. Log anything you do in the WOD section. Keep it easy if you want Monday's cleans and squats to go well.",
+      sessions:[] },
+  },
+};
+
 const DEFAULT_PROGRAM_KEY = "crossfit";
 const MIN_BLOCK_WEEKS = 5, MAX_BLOCK_WEEKS = 10, DEFAULT_BLOCK_WEEKS = 6;
 
@@ -558,7 +689,14 @@ function correctInflatedSingles(oneRMs, prs){
       if(current) next[p.lift] = p.weight;
     }
   });
-  return { oneRMs: next, prs: fixedPrs, changed };
+  // Drop "estimated maxes" that were calculated from carries or timed holds.
+  const badKeys = new Set();
+  Object.values(PROGRAMS).forEach(p => DAY_ORDER.forEach(d => ((p.days[d]||{}).accessories||[])
+    .forEach(a => { if(a.repUnit || a.noEstimate) badKeys.add(a.movement); })));
+  badKeys.forEach(k => { if(k in next){ delete next[k]; changed = true; } });
+  const keptPrs = fixedPrs.filter(p => !badKeys.has(p.lift));
+  if(keptPrs.length !== fixedPrs.length) changed = true;
+  return { oneRMs: next, prs: keptPrs, changed };
 }
 function todayName(){ return DAY_ORDER[(new Date().getDay()+6)%7]; }
 function fmtDate(d){ return new Date(d).toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
@@ -633,12 +771,32 @@ function projectedTestWeek(startDateISO, totalWeeks){
   return new Date(startOfWeekSunday(new Date(startDateISO)).getTime() + n*MS_WEEK);
 }
 
-const ROLE_LABEL = { heavy:"Heavy", medium:"Medium", light:"Light", test:"Test" };
+const ROLE_LABEL = { heavy:"Heavy", medium:"Medium", light:"Light", test:"Test", volume:"Volume", run:"Run" };
 
 // Build one session's exercise from the lift's block and a role. Medium runs
 // ~90% of the heavy load with one fewer set; light runs ~80% for 2-3 paused
 // sets. Only the heavy session is meant to be genuinely hard.
-function sessionExercise(prog, day, slot, role, pos){
+const DEFAULT_VOLUME = { sets:3, reps:[10,8], rirStart:3, rirEnd:1,
+  style:"Hypertrophy sets - controlled lowering, full range" };
+
+// Effort per role is set in reps-in-reserve so it means the same thing at any
+// rep count. Medium sits 2 reps further from failure than heavy, light 4.
+// (The old rule - medium = 90% of the heavy load - made medium sixes far
+// easier than medium doubles.) Blocks without a reps-in-reserve curve, like
+// the clean, keep simple load percentages.
+function roleRir(role, heavyRir){
+  if(role === "medium") return Math.max(2, heavyRir + 2);
+  if(role === "light") return Math.max(4, heavyRir + 4);
+  return heavyRir;
+}
+
+function lightStyle(loadFactor){
+  return (loadFactor || 1) < 1
+    ? "Technique work - keep the pause, move smoothly"
+    : "Technique work - smooth, fast reps";
+}
+
+function sessionExercise(prog, day, slot, role, pos, note){
   const block = liftBlock(prog, slot);
   if(!block) return null;
   const total = pos.totalWeeks;
@@ -655,10 +813,20 @@ function sessionExercise(prog, day, slot, role, pos){
   // In a test week, sessions that aren't the test itself run off the
   // previous week's prescription rather than the test row.
   const workingWeek = pos.testWeek ? Math.max(1, total - 1) : pos.weekInBlock;
+  const working = Math.max(1, total - 1);
 
   if(block.type === "skill"){
     const row = role === "test" ? weeks[weeks.length-1] : (weeks.find(w=>w.week===workingWeek) || weeks[0]);
     return { ...base, type:"skill", prescription: row.prescription, isTest: role === "test" };
+  }
+
+  if(block.type === "run"){
+    const isTest = role === "test";
+    const text = isTest ? block.test.prescription
+               : role === "light" ? block.taper
+               : (weeks.find(w=>w.week===workingWeek) || weeks[0]).prescription;
+    return { ...base, type:"run", prescription: text, paceKeys: block.paceKeys || [],
+             isTest, testKm: isTest ? (block.test.km || 10) : null };
   }
 
   if(role === "test"){
@@ -666,27 +834,52 @@ function sessionExercise(prog, day, slot, role, pos){
     return { ...base, type:"strength", lift:block.lift, sets:t.sets, reps:t.reps, pct:t.pct, style:t.style, isTest:true, rir:null };
   }
 
+  // Volume (hypertrophy) role: its own higher-rep scheme with a gentle
+  // reps-in-reserve ramp, independent of the strength phases.
+  if(role === "volume"){
+    const v = { ...DEFAULT_VOLUME, ...(block.volume || {}) };
+    const firstHalf = workingWeek <= Math.ceil(working / 2);
+    const reps = Array.isArray(v.reps) ? (firstHalf ? v.reps[0] : v.reps[v.reps.length-1]) : v.reps;
+    const t = working === 1 ? 1 : (workingWeek - 1) / (working - 1);
+    const rir = Math.round((v.rirStart + (v.rirEnd - v.rirStart) * t) * 2) / 2;
+    // A slow lowering costs load the same way a pause does.
+    const pct = Math.round(repPct(reps + rir) * (v.loadFactor || 1) * 1000) / 1000;
+    return { ...base, type:"strength", lift:block.lift, sets:v.sets, reps, pct,
+             rir: base.loadMode === "progression" ? null : rir,
+             style: note || v.style, isTest:false };
+  }
+
   const row = weeks.find(w=>w.week===workingWeek) || weeks[0];
-  const factor = role === "medium" ? 0.9 : role === "light" ? 0.8 : 1;
   const sets = role === "heavy" ? row.sets
              : role === "medium" ? Math.max(2, row.sets - 1)
              : Math.max(2, Math.min(3, row.sets - 2));
-  const pct = Math.round(row.pct * factor * 1000) / 1000;
-  // Percentage-based blocks get a reps-in-reserve target for every role, so
-  // medium and light days show how much easier they're meant to be.
-  const rir = block.rir ? rirFromPct(pct, row.reps, row.loadFactor) : null;
+  let pct, rir = null;
+  if(block.rir && row.rir !== null && row.rir !== undefined){
+    rir = roleRir(role, row.rir);
+    // Test week: non-test sessions are a true deload so you arrive fresh.
+    if(pos.testWeek && role === "light") rir = Math.max(6, row.rir + 6);
+    pct = Math.round(repPct(row.reps + rir) * (row.loadFactor || 1) * 1000) / 1000;
+  } else {
+    const factor = role === "medium" ? 0.9 : role === "light" ? 0.8 : 1;
+    pct = Math.round(row.pct * factor * 1000) / 1000;
+  }
   return {
     ...base, type:"strength", lift:block.lift, sets, reps:row.reps, pct, rir,
-    style: role === "light" ? "Light - paused reps, crisp technique, stay 3-4 reps from failure" : row.style,
+    style: note || (role === "light" ? lightStyle(row.loadFactor) : row.style),
     isTest:false,
   };
 }
 
-// Test-week layout for a synced program: test days carry the maxes, every
-// other session drops to light, and a lift trained only once a week skips its
-// usual session because its test replaces it.
+// Test-week layout for a synced program: test days carry the maxes and every
+// other session drops to light (runs to a short taper). A lift trained only
+// once a week skips its usual session when it's tested on another day - but
+// anything not being tested keeps its session.
 function isSyncedTestDay(prog, day, pos){
   return prog.syncedTesting && pos.testWeek && !!(prog.testDays||{})[day];
+}
+
+function testedLifts(prog){
+  return new Set(Object.values(prog.testDays || {}).flat());
 }
 
 function buildDaySessions(day, progArg){
@@ -700,11 +893,12 @@ function buildDaySessions(day, progArg){
     if(pos.testWeek){
       const tests = (prog.testDays||{})[day];
       if(tests) return tests.map(slot => sessionExercise(prog, day, slot, "test", pos)).filter(Boolean);
+      const tested = testedLifts(prog);
       return (cfg.sessions||[])
-        .filter(s => liftFrequency(prog, s.lift) > 1)
-        .map(s => sessionExercise(prog, day, s.lift, "light", pos)).filter(Boolean);
+        .filter(s => !(tested.has(s.lift) && liftFrequency(prog, s.lift) === 1))
+        .map(s => sessionExercise(prog, day, s.lift, "light", pos, s.note)).filter(Boolean);
     }
-    return (cfg.sessions||[]).map(s => sessionExercise(prog, day, s.lift, s.role, pos)).filter(Boolean);
+    return (cfg.sessions||[]).map(s => sessionExercise(prog, day, s.lift, s.role, pos, s.note)).filter(Boolean);
   }
 
   // Staggered: each lift is on its own cycle. In its test week the heavy
@@ -712,7 +906,7 @@ function buildDaySessions(day, progArg){
   return (cfg.sessions||[]).map(s=>{
     const pos = cyclePosition(prog, s.lift, slots);
     const role = pos.testWeek ? (s.role === "heavy" ? "test" : "light") : s.role;
-    return sessionExercise(prog, day, s.lift, role, pos);
+    return sessionExercise(prog, day, s.lift, role, pos, s.note);
   }).filter(Boolean);
 }
 
@@ -968,7 +1162,11 @@ function setsSummary(sd){
 
 function logLine(l){
   if(l.type==="strength" || l.type==="accessory"){
-    if(l.setDetails && l.setDetails.length) return setsSummary(l.setDetails);
+    // Pull-up loads are added weight, so show them as +kg.
+    if(l.setDetails && l.setDetails.length){
+      const t = setsSummary(l.setDetails);
+      return l.lift === "weightedPullup" ? t.replace(/@ ?(?=\d)/g, m => m + "+") : t;
+    }
     return `${l.sets} x ${l.reps}${l.weight?` @ ${l.weight}kg`:""}`;
   }
   if(l.type==="conditioning"||l.type==="skill") return l.result || "No result logged";
@@ -1021,6 +1219,48 @@ function buildDayWhoopText(day, logs, journal, dayWod){
              .replace(/[\u2013\u2014]/g,"-").replace(/\u00b7/g,"-").replace(/[^\x00-\x7F\n]/g,"");
 }
 
+// ---------- Running ----------
+// Paces are offsets from your current 10k pace, set so a 45:00 10k gives
+// intervals ~4:20/km, threshold ~4:42/km and easy ~5:30-5:55/km - the most
+// consistent published VDOT figures for that time.
+function fmtTime(sec){
+  sec = Math.round(sec);
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), x = sec%60;
+  return h ? `${h}:${String(m).padStart(2,"0")}:${String(x).padStart(2,"0")}` : `${m}:${String(x).padStart(2,"0")}`;
+}
+function fmtPace(secPerKm){ return fmtTime(secPerKm) + "/km"; }
+// "42:30" -> 2550, "1:05:20" -> 3920, "42" -> 2520 (minutes). null if invalid.
+function parseTime(str){
+  const t = String(str||"").trim();
+  if(!t || !/^\d+(:\d{1,2}){0,2}$/.test(t)) return null;
+  const parts = t.split(":").map(Number);
+  if(parts.slice(1).some(p => p > 59)) return null;
+  if(parts.length === 1) return parts[0] * 60;
+  if(parts.length === 2) return parts[0]*60 + parts[1];
+  return parts[0]*3600 + parts[1]*60 + parts[2];
+}
+function runPaces(){
+  if(!STATE.run10k) return null;
+  const P = STATE.run10k / 10;
+  return { I: P - 10, T: P + 12, E: [P + 60, P + 85], G: (activeProgram().goal10k || 2700) / 10 };
+}
+const PACE_NAMES = { I:"Interval", T:"Tempo", E:"Easy", G:"Goal" };
+function paceText(key, p){
+  if(!p) return { I:"hard (3-5k race effort)", T:"comfortably hard (1-hour race effort)", E:"easy, conversational effort", G:"goal pace" }[key];
+  if(key === "E") return `${fmtTime(p.E[0])}-${fmtPace(p.E[1])}`;
+  return fmtPace(p[key]);
+}
+function fillPaces(text){
+  const p = runPaces();
+  return String(text||"").replace(/\{([ITEG])\}/g, (_, k) => paceText(k, p));
+}
+// A time trial over a distance other than 10km converts with Riegel's formula.
+function tenKEquivalent(km, sec){ return km === 10 ? sec : sec * Math.pow(10/km, 1.06); }
+
+function saveSettings(){
+  saveKey("settings", { programKey: STATE.programKey, blockWeeks: STATE.blockWeeks, run10k: STATE.run10k || null });
+}
+
 // ============================================================
 // State
 // ============================================================
@@ -1034,11 +1274,12 @@ const STATE = {
   prs: [],
   programKey: DEFAULT_PROGRAM_KEY,
   blockWeeks: DEFAULT_BLOCK_WEEKS,
+  run10k: null,          // current 10k time in seconds - drives run paces
   slotState: {},        // { programKey: { day: {...} } } - namespaced per program
   dayWods: {},          // { Monday: {..wod..}, ... } - cleared each Sunday 23:00
   setTicks: {},         // { exerciseId: [bool,...] } - working state during a session
   loaded: false,
-  open: { strength: true, wod: false },   // collapsible section state
+  open: { strength: true, run: true, wod: false },   // collapsible section state
   editingLift: null,
   logSearch: "",
   logSubTab: "history",
@@ -1073,6 +1314,7 @@ async function init(){
 
   STATE.programKey = (settings && PROGRAMS[settings.programKey]) ? settings.programKey : DEFAULT_PROGRAM_KEY;
   STATE.blockWeeks = (settings && settings.blockWeeks) ? settings.blockWeeks : DEFAULT_BLOCK_WEEKS;
+  STATE.run10k = (settings && settings.run10k) ? settings.run10k : null;
 
   // Drop any WOD saved before the current training week began.
   const boundary = weekBoundary();
@@ -1240,6 +1482,10 @@ function deleteLog(logId){
   revertPrsForLog(logId);
   const entry = STATE.logs.find(l => l.id === logId);
   persistLogs(STATE.logs.filter(l => l.id !== logId));
+  if(entry && entry.type === "run" && entry.isTest && STATE.run10k === entry.newRun10k){
+    STATE.run10k = entry.prevRun10k || null;
+    saveSettings();
+  }
   // If this test restarted a cycle, put the cycle back exactly where it was,
   // then let realignment pick up any other test still standing (e.g. deleting
   // Wednesday's max while Friday's remains).
@@ -1284,10 +1530,50 @@ function logAccessory(ex, setDetails){
   // Accessories carry an estimated max too. It is never used to prescribe
   // loads - high-rep estimates are too unreliable for that - but it lets
   // progress on assistance work be tracked alongside the main lifts.
-  if(topWeight > 0 && !ex.noEstimate){
+  // A carry over 40m isn't 40 reps - estimating a max from it produced nonsense.
+  if(topWeight > 0 && !ex.noEstimate && !ex.repUnit){
     const key = ex.movement || slugify(ex.name);
     applyPrIfBeaten(logId, key, topWeight, topSet.reps, new Date().toISOString(), { estimated:true, label: ex.name });
   }
+  return true;
+}
+
+function runResult(km, sec, notes){
+  const pace = km > 0 ? sec / km : null;
+  return `${km} km in ${fmtTime(sec)}${pace ? ` (${fmtPace(pace)})` : ""}${notes ? ` - ${notes}` : ""}`;
+}
+
+// A time trial resets your current 10k (and so every pace). The previous value
+// is kept on the log so deleting it restores the old paces exactly.
+function logRun(ex, km, sec, notes){
+  if(!(km > 0) || !(sec > 0)) return false;
+  const entry = {
+    id: uid(), date: new Date().toISOString(), day: STATE.selectedDay, type:"run",
+    exerciseId: ex.id, exerciseName: ex.isTest ? "10k Time Trial" : ex.name, movement: ex.movement,
+    programKey: ex.programKey || null, slot: ex.slot || null, role: ex.role || null,
+    km, sec, notes: notes || "", isTest: !!ex.isTest, result: runResult(km, sec, notes),
+  };
+  if(ex.isTest){
+    entry.prevRun10k = STATE.run10k || null;
+    entry.newRun10k = Math.round(tenKEquivalent(km, sec));
+    STATE.run10k = entry.newRun10k;
+    saveSettings();
+  }
+  persistLogs([entry, ...STATE.logs]);
+  if(ex.isTest) refreshSlotAlignment();
+  return true;
+}
+
+function updateRunLog(logId, km, sec, notes){
+  if(!(km > 0) || !(sec > 0)) return false;
+  let reset = null;
+  persistLogs(STATE.logs.map(l=>{
+    if(l.id !== logId) return l;
+    const n = { ...l, km, sec, notes: notes || "", result: runResult(km, sec, notes), editedAt: new Date().toISOString() };
+    if(l.isTest){ n.newRun10k = Math.round(tenKEquivalent(km, sec)); reset = n.newRun10k; }
+    return n;
+  }));
+  if(reset){ STATE.run10k = reset; saveSettings(); }
   return true;
 }
 
@@ -1378,26 +1664,44 @@ function renderMain(){
 
 // ---------- Today ----------
 
+const KIND_LABEL = { big:"Big day", moderate:"Moderate day", easy:"Easy day", open:"Open day", light:"Light day", strength:"Strength day" };
+
+function dayKindLabel(cfg, sessions, syncedPos){
+  if(sessions.some(s => s.role === "test")) return "Test day";
+  if(syncedPos && syncedPos.testWeek) return "Light week";
+  return KIND_LABEL[cfg.kind] || "Strength day";
+}
+
+function testLabel(prog, slot){
+  const b = liftBlock(prog, slot);
+  if(!b) return slot;
+  if(b.testLabel) return b.testLabel;
+  return b.name + (b.testType === "repMax" ? ` ${b.testReps}RM` : "");
+}
+
 function renderToday(){
   const day = STATE.selectedDay;
   const prog = activeProgram();
   const cfg = dayConfig(day);
   const sessions = buildDaySessions(day);
+  const lifts = sessions.filter(s => s.type !== "run");
+  const runs = sessions.filter(s => s.type === "run");
   const cond = dayConditioning(day);
-  const strengthEx = [ ...sessions, ...dayAccessories(day), ...(cond ? [cond] : []) ];
+  const strengthEx = [ ...lifts, ...dayAccessories(day), ...(cond ? [cond] : []) ];
   const syncedPos = prog.syncedTesting ? cyclePosition(prog, null) : null;
   const isTestDay = sessions.some(s => s.role === "test");
+  const hasWork = sessions.length || strengthEx.length;
 
   let subtitle;
-  if(!sessions.length){
+  if(!hasWork){
     subtitle = esc(cfg.focus || "Rest");
   } else if(sessions.length === 1 && !prog.syncedTesting){
     const p = sessions[0];
     subtitle = `${esc(p.name)} - Week ${p.weekInBlock}/${p.totalWeeks} - ${esc(p.blockLabel)}`;
   } else {
-    const p = sessions[0];
-    const kind = isTestDay ? "Test day" : (syncedPos && syncedPos.testWeek) ? "Light week" : cfg.kind === "light" ? "Light day" : "Strength day";
-    subtitle = `${kind} - Week ${p.weekInBlock}/${p.totalWeeks}`;
+    const wk = syncedPos ? syncedPos : (sessions[0] || {});
+    subtitle = `${dayKindLabel(cfg, sessions, syncedPos)}${cfg.label && !isTestDay ? ` - ${esc(cfg.label)}` : ""}`
+             + (wk.weekInBlock ? ` - Week ${wk.weekInBlock}/${wk.totalWeeks}` : "");
   }
 
   let html = `<div class="pill-row">${DAY_ORDER.map(d=>
@@ -1406,13 +1710,11 @@ function renderToday(){
 
   html += `<div style="margin-bottom:16px">
     <div class="disp" style="font-size:24px;text-transform:uppercase;font-weight:600">${day}</div>
-    <div class="small accent">${subtitle}${sessions.length ? ` <button class="linkbtn" id="change-week-link" style="padding:0 0 0 4px;font-size:11px">change week</button>` : ''}</div></div>`;
+    <div class="small accent">${subtitle}${(sessions.length || syncedPos) && hasWork ? ` <button class="linkbtn" id="change-week-link" style="padding:0 0 0 4px;font-size:11px">change week</button>` : ''}</div></div>`;
 
-  // Synced test week: say plainly what's happening and when the maxes are.
+  // Synced test week: say plainly what's happening and when the tests are.
   if(syncedPos && syncedPos.testWeek){
-    const plan = Object.entries(prog.testDays||{}).map(([d, lifts])=>
-      `${d}: ${lifts.map(k=>{ const b = liftBlock(prog,k); return b ? b.name + (b.testType==="repMax" ? ` ${b.testReps}RM` : "") : k; }).join(", ")}`
-    ).join(" &middot; ");
+    const plan = Object.entries(prog.testDays||{}).map(([d, ks]) => `${d}: ${ks.map(k => testLabel(prog, k)).join(", ")}`).join(" &middot; ");
     html += `<div class="card test" style="display:flex;gap:8px;align-items:flex-start">
       ${iconSpan('trend',15,GOOD)}
       <div class="small"><span class="good" style="font-weight:600">${syncedPos.complete ? "Test week overdue." : "Test week."}</span>
@@ -1429,24 +1731,36 @@ function renderToday(){
     }
   }
 
-  if(cfg.kind === "light" && !isTestDay && !(syncedPos && syncedPos.testWeek)){
-    html += `<div class="xsmall muted" style="margin:-6px 0 12px">Short session - room for a CrossFit workout after. Log it in the WOD section below.</div>`;
+  // Day note: program-specific, except in a test week where the banner says it.
+  if(!isTestDay && !(syncedPos && syncedPos.testWeek)){
+    const note = cfg.note || (cfg.kind === "light" ? "Short session - room for a CrossFit workout after. Log it in the WOD section below." : "");
+    if(note) html += `<div class="xsmall muted" style="margin:-6px 0 12px;line-height:1.45">${esc(note)}</div>`;
   }
 
-  // ----- Strength section -----
   const loggedIds = new Set(STATE.logs.filter(l=>isThisTrainingWeek(l.date)).map(l=>l.exerciseId));
-  const doneCount = strengthEx.filter(e=>loggedIds.has(e.id)).length;
-  html += section("strength", "Strength & Accessories",
-    strengthEx.length ? `${doneCount}/${strengthEx.length} logged this week` : "Rest day",
-    strengthEx.length === 0
-      ? `<div class="card small muted" style="text-align:center">Rest day. Recover, hydrate, sleep.</div>`
-      : strengthEx.map(ex =>
-          ex.type==="strength" ? strengthCard(ex)
-          : ex.type==="skill" ? skillCard(ex)
-          : ex.type==="conditioning" ? conditioningCard(ex)
-          : accessoryCard(ex)
-        ).join('')
-  );
+
+  // ----- Strength section -----
+  if(strengthEx.length || !runs.length){
+    const doneCount = strengthEx.filter(e=>loggedIds.has(e.id)).length;
+    const title = lifts.length ? "Strength & Accessories" : (strengthEx.length ? "Core & Accessories" : "Strength & Accessories");
+    html += section("strength", title,
+      strengthEx.length ? `${doneCount}/${strengthEx.length} logged this week` : (cfg.kind === "open" ? "Open day" : "Rest day"),
+      strengthEx.length === 0
+        ? `<div class="card small muted" style="text-align:center">${cfg.kind === "open" ? "Nothing programmed - your call today." : "Rest day. Recover, hydrate, sleep."}</div>`
+        : strengthEx.map(ex =>
+            ex.type==="strength" ? strengthCard(ex)
+            : ex.type==="skill" ? skillCard(ex)
+            : ex.type==="conditioning" ? conditioningCard(ex)
+            : accessoryCard(ex)
+          ).join('')
+    );
+  }
+
+  // ----- Run section -----
+  if(runs.length){
+    const runDone = runs.filter(r => loggedIds.has(r.id)).length;
+    html += section("run", "Run", `${runDone}/${runs.length} logged this week`, runs.map(runCard).join(''));
+  }
 
   // ----- WOD section -----
   const saved = STATE.dayWods[day];
@@ -1499,8 +1813,9 @@ function tickProgress(exId, count){
 
 function setRows(ex, prefill, showWeight){
   const ticks = setTicksFor(ex.id, ex.sets);
+  const unitLbl = ex.repUnit === "m" ? "Metres" : ex.repUnit === "s" ? "Seconds" : "Reps";
   let rows = `<div class="setrow head"><div></div><div></div>
-    <div class="lbl">Reps</div>${showWeight?`<div class="lbl">Weight kg</div>`:`<div class="lbl">&nbsp;</div>`}</div>`;
+    <div class="lbl">${unitLbl}${ex.perSide ? " /side" : ""}</div>${showWeight?`<div class="lbl">Weight kg</div>`:`<div class="lbl">&nbsp;</div>`}</div>`;
   for(let i=0;i<ex.sets;i++){
     const p = prefill[i] || {};
     rows += `<div class="setrow ${ticks[i]?'ticked':''}" data-set="${i}">
@@ -1533,8 +1848,8 @@ function loggedThisWeek(exId){
 
 function roleChip(role){
   if(!role) return '';
-  const bg = role === "heavy" ? ACCENT : role === "test" ? GOOD : "#26292E";
-  const fg = role === "heavy" || role === "test" ? "#121316" : "#9CA0A7";
+  const bg = role === "heavy" ? ACCENT : role === "test" ? GOOD : role === "volume" ? "#3B5B7A" : "#26292E";
+  const fg = role === "heavy" || role === "test" ? "#121316" : role === "volume" ? "#DCE8F4" : "#9CA0A7";
   return `<span class="chip" style="background:${bg};color:${fg};margin-left:6px;vertical-align:2px">${ROLE_LABEL[role]||role}</span>`;
 }
 
@@ -1542,13 +1857,14 @@ function roleChip(role){
 // includes hip thrust, whose test is a 5RM but whose loads are 1RM-based.
 function prescriptionLine(ex, rec){
   if(ex.isTest){
-    const what = ex.loadMode === "progression" ? "Max added weight, 1 rep"
-               : ex.testType === "repMax" ? `${ex.testReps||5}RM test` : "1RM test";
-    const at = rec ? ` - open around ${rec}kg` : ex.loadMode === "progression" ? "" : " - set your max in Lifts first";
-    return what + at;
+    const inc = LIFT_INCREMENT[ex.lift] || 2.5;
+    if(ex.loadMode === "progression") return "Max added weight for 1 rep" + (rec ? ` - aim for +${rec}kg (current max +${inc})` : "");
+    if(ex.testType === "repMax") return `${ex.testReps||5}RM test` + (rec ? ` - aim for ${rec}kg x ${ex.testReps||5}` : " - set your max in Lifts first");
+    return "1RM test - warm up in singles" + (rec ? `, aim for ${rec}kg (current max +${inc})` : " - set your max in Lifts first");
   }
   if(ex.loadMode === "progression"){
-    return `${ex.sets} x ${ex.reps}` + (rec != null ? ` - suggested +${rec}kg` : " - pick a load you can hit cleanly");
+    if(rec != null) return `${ex.sets} x ${ex.reps} - suggested +${rec}kg`;
+    return `${ex.sets} x ${ex.reps}` + (ex.role === "volume" ? " - start at bodyweight" : ex.role === "light" ? " - light load, crisp reps" : " - pick an added load you can hit cleanly");
   }
   return `${ex.sets} x ${ex.reps} @ ${Math.round(ex.pct*100)}% of 1RM` + (rec ? ` - target ${rec}kg` : " - set your 1RM in Lifts");
 }
@@ -1558,13 +1874,15 @@ function prescriptionLine(ex, rec){
 function rirLine(ex){
   if(ex.rir === null || ex.rir === undefined || ex.isTest) return '';
   const r = ex.rir;
-  const words = r <= 0.5 ? "0-1 reps left in the tank"
-              : r === 1 ? "about 1 rep left in the tank"
-              : r >= 5 ? "5+ reps left in the tank - should feel easy"
-              : `about ${r} reps left in the tank`;
-  const near = ex.role === "heavy" && r <= 1.5;
+  let words;
+  if(r <= 0.5) words = "0-1 reps left in the tank";
+  else if(r === 1) words = "about 1 rep left in the tank";
+  else if(ex.role === "light" && r >= 5) words = "5+ reps left in the tank - should feel easy";
+  else words = `about ${r} reps left in the tank`;
+  if(ex.role === "heavy" && r >= 4) words += " - loads build toward the end of the block";
+  const near = (ex.role === "heavy" || ex.role === "volume") && r <= 1.5;
   const color = near ? ACCENT : '#9CA0A7';
-  return `<div class="xsmall" style="margin-top:4px;color:${color}">Target: ${words}${near ? ` on the first set. If it moves slowly, drop 2.5-5kg for the rest.` : ''}</div>`;
+  return `<div class="xsmall" style="margin-top:4px;color:${color}">Target: ${words}${near ? `. If the first set moves slowly, drop 2.5-5kg for the rest.` : ''}</div>`;
 }
 
 function strengthCard(ex){
@@ -1622,7 +1940,7 @@ function accessoryCard(ex){
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div>
         <div class="disp" style="font-size:16px;font-weight:600">${esc(ex.name)}</div>
-        <div class="xsmall muted" style="margin-top:2px">Suggested ${ex.sets} x ${ex.reps}${unit}</div>
+        <div class="xsmall muted" style="margin-top:2px">Suggested ${ex.sets} x ${ex.reps}${unit === "s" ? " sec" : unit}${ex.perSide ? " each side" : ""}</div>
         <div class="small muted" style="margin-top:2px">${esc(ex.detail)}</div>
       </div>
       <span style="display:${already?'inline-flex':'none'}">${iconSpan('check',18,GOOD)}</span>
@@ -1637,6 +1955,44 @@ function accessoryCard(ex){
            <button class="btn btn-ghost delete-log-btn" style="flex:0 0 46px;padding:10px 0">${iconSpan('trash',14,'#8B8F96')}</button>
          </div>`
       : `<button class="btn btn-primary log-sets-btn">Log Sets</button>`}
+  </div>`;
+}
+
+function runCard(ex){
+  const already = loggedThisWeek(ex.id);
+  const last = already ? null : lastEntryFor(ex);
+  const p = runPaces();
+  const keys = Array.from(new Set((ex.prescription.match(/\{([ITEG])\}/g) || []).map(t => t[1])));
+  const paceLine = keys.map(k => `${PACE_NAMES[k]} ${paceText(k, p)}`).join(" &middot; ");
+  const kmVal = already ? already.km : (ex.isTest ? (ex.testKm || 10) : "");
+  const timeVal = already ? fmtTime(already.sec) : "";
+  return `<div class="card ${ex.isTest?'test':''}" data-card="${ex.id}" data-extype="run"
+      data-exjson='${escAttr(ex)}' ${already?`data-logid="${already.id}"`:''}>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="disp" style="font-size:16px;font-weight:600">${esc(ex.isTest ? "10k Time Trial" : ex.name)}${roleChip(ex.isTest ? "test" : ex.role === "light" ? "light" : "run")}</div>
+        <div class="small" style="margin-top:4px;color:#d6d3d1;line-height:1.45">${esc(fillPaces(ex.prescription))}</div>
+        ${p ? (ex.isTest ? '' : `<div class="xsmall muted" style="margin-top:4px">${paceLine}</div>`)
+            : `<div class="xsmall accent" style="margin-top:4px">Set your current 10k time in Lifts to get exact paces.</div>`}
+        <div class="xsmall" style="text-transform:uppercase;letter-spacing:0.03em;color:#8B8F96;margin-top:4px">Week ${ex.weekInBlock}/${ex.totalWeeks} - ${esc(ex.blockLabel)}${ex.isTest?' - Test Day':''}</div>
+      </div>
+      <span style="display:${already?'inline-flex':'none'}">${iconSpan('check',18,GOOD)}</span>
+    </div>
+    ${last ? `<div class="card sub" style="margin-top:10px"><div class="lbl">Last time</div>
+      <div class="small" style="color:#d6d3d1;margin-top:2px">${esc(last.result)}</div></div>`:''}
+    ${already ? `<div class="xsmall good" style="margin-top:10px">Logged ${fmtDate(already.date)}${already.editedAt?' (edited)':''} - adjust below to correct it</div>`:''}
+    <div class="grid2" style="margin-top:12px;gap:8px">
+      <div><div class="lbl">Distance km</div>${numInput('f-km', kmVal, 'e.g. 8.2')}</div>
+      <div><div class="lbl">Time (mm:ss)</div><input type="text" inputmode="numeric" class="f-time tab-num" value="${timeVal}" placeholder="e.g. 42:30"/></div>
+    </div>
+    <input type="text" class="f-notes" style="margin-top:8px" placeholder="Notes (optional) - splits, how it felt" value="${already ? esc(already.notes||'') : ''}"/>
+    <div class="xsmall accent run-error" style="margin-top:6px"></div>
+    ${already
+      ? `<div class="flex-gap" style="margin-top:8px">
+           <button class="btn btn-primary update-run-btn" style="flex:1">Update</button>
+           <button class="btn btn-ghost delete-log-btn" style="flex:0 0 46px;padding:10px 0">${iconSpan('trash',14,'#8B8F96')}</button>
+         </div>`
+      : `<button class="btn btn-primary log-run-btn" style="margin-top:8px">${ex.isTest ? 'Log Time Trial' : 'Log Run'}</button>`}
   </div>`;
 }
 
@@ -1770,8 +2126,9 @@ function renderProgram(){
     const accs = dayAccessories(day);
     const cond = dayConditioning(day);
     const rest = !sessions.length && !accs.length && !cond;
-    const tag = !sessions.length ? esc(cfg.focus || 'Rest')
-              : sessions.some(x=>x.role==="test") ? 'Test day'
+    const tag = sessions.some(x=>x.role==="test") ? 'Test day'
+              : cfg.label ? `${KIND_LABEL[cfg.kind] || ''}${KIND_LABEL[cfg.kind] ? ' - ' : ''}${esc(cfg.label)}`
+              : !sessions.length && !accs.length ? esc(cfg.focus || 'Rest')
               : cfg.kind === "light" ? 'Light + CrossFit'
               : prog.syncedTesting ? 'Strength'
               : `Week ${sessions[0].weekInBlock}/${sessions[0].totalWeeks}`;
@@ -1781,13 +2138,14 @@ function renderProgram(){
         <div class="xsmall accent">${tag}</div>
       </div>`;
     sessions.forEach(p=>{
-      const detail = p.type === "skill" ? esc(p.prescription)
+      const detail = p.type === "run" ? esc(p.isTest ? "10km all-out" : fillPaces(p.prescription).replace(/^10 min easy, (then )?/, "").replace(/, (then )?10 min easy$/, ""))
+        : p.type === "skill" ? esc(p.prescription)
         : p.isTest ? (p.loadMode === "progression" ? "Max added weight" : p.testType === "repMax" ? `${p.testReps}RM test` : "1RM test")
         : p.loadMode === "progression" ? `${p.sets}x${p.reps}, load from last session`
         : `${p.sets}x${p.reps} @ ${Math.round(p.pct*100)}%`;
       html += `<div class="card sub" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:8px">
         <div>
-          <div class="small" style="font-weight:500">${esc(p.name)}${roleChip(p.role)}</div>
+          <div class="small" style="font-weight:500">${esc(p.isTest && p.type === "run" ? "10k Time Trial" : p.name)}${roleChip(p.role)}</div>
           ${prog.syncedTesting ? '' : `<div class="xsmall muted" style="margin-top:2px">${esc(p.blockLabel)}</div>`}
         </div>
         <div class="xsmall muted tab-num" style="text-align:right">${detail}</div>
@@ -1805,7 +2163,8 @@ function renderProgram(){
       }
       html += `</div>`;
     }
-    if(rest) html += `<div class="small muted" style="font-style:italic;margin-top:6px">Rest</div>`;
+    if(cfg.note && !sessions.some(x=>x.role==="test")) html += `<div class="xsmall muted" style="margin-top:6px;line-height:1.4">${esc(cfg.note)}</div>`;
+    else if(rest) html += `<div class="small muted" style="font-style:italic;margin-top:6px">Rest</div>`;
     html += `</div>`;
   });
 
@@ -1854,10 +2213,34 @@ function renderProgramPicker(){
 
 // ---------- Lifts ----------
 
+function renderRunning(){
+  const prog = activeProgram();
+  const hasRuns = Object.values(prog.lifts || {}).some(l => (BLOCKS[l.block]||{}).type === "run");
+  if(!hasRuns && !STATE.run10k) return '';
+  const p = runPaces();
+  const goal = prog.goal10k || 2700;
+  return `<div style="margin-bottom:20px">
+    <div class="xsmall muted" style="text-transform:uppercase;margin-bottom:8px">Running</div>
+    <div class="card">
+      <div class="grid2">
+        <div><div class="lbl">Current 10k</div>
+          <input type="text" inputmode="numeric" id="run10k-input" class="tab-num" value="${STATE.run10k ? fmtTime(STATE.run10k) : ''}" placeholder="e.g. 49:30" style="font-size:18px;font-weight:600;color:${ACCENT}"/></div>
+        <div><div class="lbl">Goal</div><div class="disp tab-num" style="font-size:22px;font-weight:600;margin-top:4px">${fmtTime(goal)}</div>
+          <div class="xsmall muted">${fmtPace(goal/10)}</div></div>
+      </div>
+      ${p ? `<div class="xsmall muted" style="margin-top:10px;line-height:1.6">Training paces: Easy ${paceText("E",p)} &middot; Tempo ${paceText("T",p)} &middot; Interval ${paceText("I",p)}${STATE.run10k > goal ? `<br>${fmtTime(STATE.run10k - goal)} to go.` : `<br>Goal reached - set a new one in chat.`}</div>`
+          : `<div class="xsmall accent" style="margin-top:10px">Enter a recent 10k time (a 5k time x 2.1 works as an estimate) to set your paces.</div>`}
+      <div class="xsmall muted" style="margin-top:6px">Updates automatically when you log a 10k time trial.</div>
+      <div class="xsmall accent" id="run10k-error" style="margin-top:4px"></div>
+    </div>
+  </div>`;
+}
+
 function renderLifts(){
   let html = `<div style="margin-bottom:16px">
     <div class="disp" style="font-size:24px;text-transform:uppercase;font-weight:600">Current 1RMs</div>
     <p class="xsmall muted" style="margin-top:4px">Tap the pencil to set or correct a max. Beating one on Today updates it automatically.</p></div>`;
+  html = renderRunning() + html;
   LIFT_GROUPS.forEach(group=>{
     html += `<div style="margin-bottom:20px"><div class="xsmall muted" style="text-transform:uppercase;margin-bottom:8px">${group.title}</div><div class="grid2">`;
     group.lifts.forEach(k=>{
@@ -2071,6 +2454,29 @@ function attachTodayHandlers(){
     };
   });
 
+  document.querySelectorAll('[data-card][data-extype="run"]').forEach(card=>{
+    const ex = JSON.parse(card.dataset.exjson.replace(/&#39;/g,"'"));
+    const logId = card.dataset.logid;
+    const err = card.querySelector('.run-error');
+    const read = () => {
+      const km = parseFloat(card.querySelector('.f-km').value);
+      const sec = parseTime(card.querySelector('.f-time').value);
+      const notes = card.querySelector('.f-notes').value.trim();
+      if(!(km > 0)){ err.textContent = "Enter the distance in km."; return null; }
+      if(!sec){ err.textContent = "Enter the time as mm:ss (or h:mm:ss)."; return null; }
+      // Anything outside 2:30-15:00 per km is almost certainly a typo (e.g. "4230" for 42:30).
+      const pace = sec / km;
+      if(pace < 150 || pace > 900){ err.textContent = `That works out to ${fmtPace(pace)} - check the time is mm:ss, e.g. 42:30.`; return null; }
+      return { km, sec, notes };
+    };
+    const logBtn = card.querySelector('.log-run-btn');
+    if(logBtn) logBtn.onclick = () => { const v = read(); if(v && logRun(ex, v.km, v.sec, v.notes)) renderMain(); };
+    const updBtn = card.querySelector('.update-run-btn');
+    if(updBtn && logId) updBtn.onclick = () => { const v = read(); if(v && updateRunLog(logId, v.km, v.sec, v.notes)) renderMain(); };
+    const delBtn = card.querySelector('.delete-log-btn');
+    if(delBtn && logId) delBtn.onclick = () => { if(confirm(`Delete this ${ex.isTest ? "time trial" : "run"}?`)){ deleteLog(logId); renderMain(); } };
+  });
+
   attachWodHandlers();
 
   const copyBtn = document.getElementById('copy-whoop-btn');
@@ -2170,7 +2576,7 @@ function saveDayWod(day, wod){
 function switchProgram(key){
   if(!PROGRAMS[key] || key === STATE.programKey) return;
   STATE.programKey = key;
-  saveKey("settings", { programKey: STATE.programKey, blockWeeks: STATE.blockWeeks });
+  saveSettings();
   // Seed any day this program hasn't run before; days it has run keep their
   // place, so switching back resumes mid-block rather than restarting.
   seedProgramSlots(key);
@@ -2185,7 +2591,7 @@ function setBlockWeeks(n){
   const v = Math.min(MAX_BLOCK_WEEKS, Math.max(MIN_BLOCK_WEEKS, parseInt(n,10)||DEFAULT_BLOCK_WEEKS));
   if(v === STATE.blockWeeks) return;
   STATE.blockWeeks = v;
-  saveKey("settings", { programKey: STATE.programKey, blockWeeks: v });
+  saveSettings();
   // Changing block length moves every test week, so re-space them.
   respaceAllSlots();
   renderMain();
@@ -2315,6 +2721,19 @@ function attachProgramHandlers(){
 
 function attachLiftsHandlers(){
   wireNumFields();
+  const r = document.getElementById('run10k-input');
+  if(r){
+    const commit = () => {
+      const v = r.value.trim();
+      if(!v){ return; }
+      const sec = parseTime(v);
+      // A 10k between 25 and 120 minutes is the only sane range to accept.
+      if(!sec || sec < 25*60 || sec > 120*60){ document.getElementById('run10k-error').textContent = "Enter a 10k time like 49:30."; return; }
+      STATE.run10k = sec; saveSettings(); renderMain();
+    };
+    r.onblur = commit;
+    r.onkeydown = (e) => { if(e.key === 'Enter') r.blur(); };
+  }
   document.querySelectorAll('.edit-lift-btn').forEach(btn=>{
     btn.onclick = () => {
       STATE.editingLift = STATE.editingLift === btn.dataset.lift ? null : btn.dataset.lift;
